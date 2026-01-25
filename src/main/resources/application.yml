@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/kasadatabase
+    username: postgres
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+kasadeneme3:
+  jwt:
+    secret-key: "52şjk34k%B'J^+KJ%'^LŞ+%JS2kŞ^+J%'LK^J+5kl2j35"
+    issuer: kasapi
+
