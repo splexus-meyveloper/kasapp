@@ -8,6 +8,8 @@ import org.example.dto.response.LoginResponse;
 import org.example.entity.Permission;
 import org.example.entity.User;
 import org.example.entity.UserPermission;
+import org.example.exception.ErrorType;
+import org.example.exception.KasappException;
 import org.example.mapper.UserMapper;
 import org.example.repository.PermissionRepository;
 import org.example.repository.UserPermissionRepository;
@@ -34,11 +36,15 @@ public class AuthService {
 
         // 1️⃣ Kullanıcıyı bul
         User user = userRepository.findByUsername(request.username())
-                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
+                .orElseThrow(() -> new KasappException(ErrorType.USER_NOT_FOUND));
+
+        if (!user.isActive()){
+            throw new KasappException(ErrorType.USER_INACTIVE);
+        }
 
         // 2️⃣ Şifre kontrolü
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new RuntimeException("Şifre yanlış");
+            throw new KasappException(ErrorType.INVALID_USERNAME_OR_PASSWORD);
         }
 
         // 3️⃣ Kullanıcının yetkilerini DB'den çek
@@ -81,11 +87,11 @@ public class AuthService {
         Long adminUserId = AuthUtil.getUserId();
 
         User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new RuntimeException("Admin bulunamadı"));
+                .orElseThrow(() -> new KasappException(ErrorType.ADMIN_NOT_FOUND));
 
         // 🔴 YETKİ KONTROLÜ
         if (adminUser.getRole() != ERole.ADMIN) {
-            throw new RuntimeException("Bu işlem için yetkiniz yok");
+            throw new KasappException(ErrorType.PERMISSION_NOT_FOUND);
         }
 
         // ✅ Yeni kullanıcı oluştur

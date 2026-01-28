@@ -12,5 +12,5 @@ public interface UserRepository extends JpaRepository <User,Long> {
     @Override
     Optional<User> findById(Long aLong);
 
-    List<User> findAllByCompanyId(Long companyId);
+    List<User> findAllByCompanyIdAndActiveTrue(Long companyId);
 }

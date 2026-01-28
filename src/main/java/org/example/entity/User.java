@@ -33,4 +33,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ERole role;
+
+    @Builder.Default
+    private boolean active=true;
 }

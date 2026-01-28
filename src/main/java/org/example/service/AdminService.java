@@ -7,6 +7,8 @@ import org.example.dto.response.GetProfileResponse;
 import org.example.entity.Permission;
 import org.example.entity.User;
 import org.example.entity.UserPermission;
+import org.example.exception.ErrorType;
+import org.example.exception.KasappException;
 import org.example.repository.PermissionRepository;
 import org.example.repository.UserPermissionRepository;
 import org.example.repository.UserRepository;
@@ -45,29 +47,33 @@ public class AdminService {
     }
 
     @Transactional
-    public void setUserPermissions(Long userId, List<String> permissions) {
-        userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User bulunamadı"));
+    public void replaceUserPermissions(Long userId, List<String> permissions) {
 
-        if (permissions == null || permissions.isEmpty()) return;
+        // 🔥 1️⃣ Önce HER ŞEYİ SİL
+        userPermissionRepository.deleteByUserId(userId);
 
-        var existing = userPermissionRepository.findByUserId(userId);
-        var existingPermIds = existing.stream()
-                .map(UserPermission::getPermissionId)
-                .collect(java.util.stream.Collectors.toSet());
+        // (opsiyonel ama sağlamcı)
+        userPermissionRepository.flush();
 
+        // 2️⃣ Liste boşsa -> kullanıcı yetkisiz kalır
+        if (permissions == null || permissions.isEmpty()) {
+            return;
+        }
+
+        // 3️⃣ Yeniden ekle
         for (String code : permissions) {
             Permission p = permissionRepository.findByCode(code)
-                    .orElseThrow(() -> new RuntimeException("Permission yok: " + code));
-
-            if (existingPermIds.contains(p.getId())) continue; // duplicate engel
+                    .orElseThrow(() -> new KasappException(ErrorType.PERMISSION_NOT_FOUND));
 
             UserPermission up = new UserPermission();
             up.setUserId(userId);
             up.setPermissionId(p.getId());
+
             userPermissionRepository.save(up);
         }
     }
+
+
 
 
     @Transactional(readOnly = true)
@@ -75,7 +81,27 @@ public class AdminService {
 
         Long companyId = AuthUtil.getCompanyId();
 
-        return userRepository.findAllByCompanyId(companyId);
+        return userRepository.findAllByCompanyIdAndActiveTrue(companyId);
     }
+
+    @Transactional
+    public void deactivateUser(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new KasappException(ErrorType.USER_NOT_FOUND));
+
+        Long currentUserId = AuthUtil.getUserId();
+
+        if (user.getId().equals(currentUserId)) {
+            throw new KasappException(ErrorType.INVALID_TRANSACTION);
+        }
+
+        if (!user.isActive()) {
+            throw new KasappException(ErrorType.USER_INACTIVE);
+        }
+
+        user.setActive(false);
+    }
+
 }
 

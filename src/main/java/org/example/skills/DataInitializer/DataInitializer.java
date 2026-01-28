@@ -42,6 +42,7 @@ public class DataInitializer {
             admin.setPasswordHash(passwordEncoder.encode("1234"));
             admin.setRole(ERole.ADMIN);
             admin.setCompanyId(1L); // ✅ BUNU EKLE
+            admin.setActive(true);
             userRepository.save(admin);
 
 
