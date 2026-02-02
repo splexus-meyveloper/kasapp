@@ -1,9 +1,6 @@
 package org.example.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.dto.request.GetProfileRequest;
-import org.example.dto.request.SetPermissionsRequest;
-import org.example.dto.response.GetProfileResponse;
 import org.example.entity.Permission;
 import org.example.entity.User;
 import org.example.entity.UserPermission;
@@ -12,15 +9,10 @@ import org.example.exception.KasappException;
 import org.example.repository.PermissionRepository;
 import org.example.repository.UserPermissionRepository;
 import org.example.repository.UserRepository;
-import org.example.security.JwtAuthFilter;
-import org.example.skills.AuthUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -77,20 +69,18 @@ public class AdminService {
 
 
     @Transactional(readOnly = true)
-    public List<User> getAllProfiles() {
-
-        Long companyId = AuthUtil.getCompanyId();
-
-        return userRepository.findAllByCompanyIdAndActiveTrue(companyId);
+    public List<User> getAllProfiles(Long companyId) {
+        return userRepository
+                .findAllByCompanyIdAndActiveTrue(companyId);
     }
 
     @Transactional
-    public void deactivateUser(Long userId) {
+    public void deactivateUser(Long targetUserId,
+                               Long currentUserId){
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new KasappException(ErrorType.USER_NOT_FOUND));
-
-        Long currentUserId = AuthUtil.getUserId();
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() ->
+                        new KasappException(ErrorType.USER_NOT_FOUND));
 
         if (user.getId().equals(currentUserId)) {
             throw new KasappException(ErrorType.INVALID_TRANSACTION);

@@ -1,19 +1,16 @@
 package org.example.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.example.dto.request.GetProfileRequest;
 import org.example.dto.request.SetPermissionsRequest;
 import org.example.entity.User;
 import org.example.exception.ErrorType;
 import org.example.exception.KasappException;
-import org.example.repository.UserRepository;
+import org.example.security.CustomUserDetails;
 import org.example.service.AdminService;
-import org.example.skills.AuthUtil;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -49,14 +46,20 @@ public class AdminController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/profiles")
-    public List<User> getAllProfiles() {
-        return adminService.getAllProfiles();
+    public List<User> getAllProfiles(
+            @AuthenticationPrincipal CustomUserDetails user){
+
+        return adminService
+                .getAllProfiles(user.getCompanyId());
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/users/{id}")
-    public void deactivateUser(@PathVariable Long id) {
-        adminService.deactivateUser(id);
+    public void deactivate(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails user){
+
+        adminService.deactivateUser(id, user.getId());
     }
 }
 

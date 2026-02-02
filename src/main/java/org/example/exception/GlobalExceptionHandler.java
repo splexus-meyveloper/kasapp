@@ -23,28 +23,27 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorMessage> runtimeExceptionHandler(RuntimeException exception){
-		/*log.error("BEKLENMEYEN HATA.....: " + exception.getMessage());
-		return new ResponseEntity<>(ErrorMessage.builder()
-				                            .success(false)
-				                            .message("Sunucuda beklenmeyen hata...: ")
-				                            .code(500)
-				                            .build(),HttpStatus.INTERNAL_SERVER_ERROR);*/
-        return createResponseEntity(ErrorType.INTERNAL_SERVER_ERROR,HttpStatus.INTERNAL_SERVER_ERROR,null);
+
+        log.error("UNEXPECTED ERROR:", exception);
+
+        return createResponseEntity(
+                ErrorType.INTERNAL_SERVER_ERROR,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                null
+        );
     }
 
     @ExceptionHandler(KasappException.class)
     @ResponseBody
-    public ResponseEntity<ErrorMessage> xApplicationExceptionHandler(KasappException exception){
-//		ResponseEntity.ok().build(); -> 200 Ok. Success her şey yolunda
-//		ResponseEntity.badRequest(); -> 400 BadRequest yani gelen istek hatalı
-//		ResponseEntity.internalServerError(); -> 500 sunucu tarafında bir hata oluştu
+    public ResponseEntity<ErrorMessage> KasappExceptionHandler(KasappException exception){
 
-		/*return new ResponseEntity<>(ErrorMessage.builder()
-				                            .code(exception.getErrorType().getCode())
-				                            .message(exception.getErrorType().getMessage())
-				                            .success(false)
-				                            .build(),exception.getErrorType().getHttpStatus());*/
-        return createResponseEntity(exception.getErrorType(),exception.getErrorType().getHttpStatus(),null);
+        log.error("APP ERROR:", exception);
+
+        return createResponseEntity(
+                exception.getErrorType(),
+                exception.getErrorType().getHttpStatus(),
+                null
+        );
     }
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseBody
@@ -65,13 +64,19 @@ public class GlobalExceptionHandler {
         return createResponseEntity(ErrorType.VALIDATION_ERROR,HttpStatus.BAD_REQUEST,fieldErrors);
     }
 
-    public ResponseEntity<ErrorMessage> createResponseEntity(ErrorType errorType, HttpStatus httpStatus, List<String> fieldErrors){
-        log.error("TÜM HATALARIN GEÇTİĞİ NOKTA....: " + errorType.getMessage() + fieldErrors);
-        return new ResponseEntity<>(ErrorMessage.builder()
-                .fields(fieldErrors)
-                .success(false)
-                .message(errorType.getMessage())
-                .code(errorType.getCode())
-                .build(), httpStatus);
+    public ResponseEntity<ErrorMessage> createResponseEntity(
+            ErrorType errorType,
+            HttpStatus httpStatus,
+            List<String> fieldErrors){
+
+        return new ResponseEntity<>(
+                ErrorMessage.builder()
+                        .fields(fieldErrors)
+                        .success(false)
+                        .message(errorType.getMessage())
+                        .code(errorType.getCode())
+                        .build(),
+                httpStatus
+        );
     }
 }
