@@ -10,13 +10,13 @@ import org.example.entity.User;
 import org.example.entity.UserPermission;
 import org.example.exception.ErrorType;
 import org.example.exception.KasappException;
-import org.example.mapper.UserMapper;
 import org.example.repository.PermissionRepository;
 import org.example.repository.UserPermissionRepository;
 import org.example.repository.UserRepository;
-import org.example.skills.AuthUtil;
+import org.example.security.CustomUserDetails;
 import org.example.skills.Jwt.JwtService;
 import org.example.skills.enums.ERole;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -83,22 +83,25 @@ public class AuthService {
 
     public void register(RegisterRequest request){
 
-        // 🔐 Sisteme giriş yapan kullanıcıyı JWT'den al
-        Long adminUserId = AuthUtil.getUserId();
+        CustomUserDetails currentUser =
+                (CustomUserDetails) SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
+                        .getPrincipal();
+
+        Long adminUserId = currentUser.getId();
 
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new KasappException(ErrorType.ADMIN_NOT_FOUND));
 
-        // 🔴 YETKİ KONTROLÜ
         if (adminUser.getRole() != ERole.ADMIN) {
             throw new KasappException(ErrorType.PERMISSION_NOT_FOUND);
         }
 
-        // ✅ Yeni kullanıcı oluştur
         User user = new User();
         user.setUsername(request.username());
-        user.setCompanyId(adminUser.getCompanyId());   // 🔥 Aynı firmaya ekler
-        user.setRole(ERole.USER);                       // 🔥 ZORUNLU
+        user.setCompanyId(adminUser.getCompanyId());
+        user.setRole(ERole.USER);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
 
         userRepository.save(user);

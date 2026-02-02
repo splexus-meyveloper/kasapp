@@ -5,6 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.example.skills.Jwt.JwtService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -17,82 +18,85 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
-    public JwtAuthFilter(JwtService jwtService) {
-        this.jwtService = jwtService;
-    }
-
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
-        // 🔴🔴🔴 BURASI
-        System.out.println(">>> JWT FILTER WORKING <<<");
+        String authHeader = request.getHeader("Authorization");
 
-        String auth = request.getHeader("Authorization");
-
-        if (auth == null || !auth.startsWith("Bearer ")) {
-            System.out.println(">>> NO AUTH HEADER <<<");
+        // Token yoksa geç
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = auth.substring(7);
+        String token = authHeader.substring(7);
 
         try {
+
+            // JWT doğrula
             DecodedJWT jwt = jwtService.verify(token);
 
             String username = jwt.getSubject();
             Long userId = jwt.getClaim("userId").asLong();
             Long companyId = jwt.getClaim("companyId").asLong();
             String role = jwt.getClaim("role").asString();
+            List<String> permissions =
+                    jwt.getClaim("permissions").asList(String.class);
 
-            List<String> permissions = jwt.getClaim("permissions").asList(String.class);
-
-            System.out.println("JWT USER = " + username);
-            System.out.println("JWT ROLE = " + role);
-            System.out.println("JWT PERMS = " + permissions);
-
+            // Authorities oluştur
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-            // ROLE
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
-
-            // PERMISSIONS
-            if (permissions != null) {
-                for (String p : permissions) {
-                    System.out.println("ADDING PERMISSION = " + p);
-                    authorities.add(new SimpleGrantedAuthority(p));
-                }
+            if (role != null) {
+                authorities.add(
+                        new SimpleGrantedAuthority("ROLE_" + role)
+                );
             }
 
-            System.out.println("FINAL AUTHORITIES = " + authorities);
+            if (permissions != null) {
+                permissions.forEach(p ->
+                        authorities.add(new SimpleGrantedAuthority(p))
+                );
+            }
 
+            // CustomUserDetails oluştur
+            CustomUserDetails userDetails =
+                    new CustomUserDetails(
+                            userId,
+                            companyId,
+                            username,
+                            authorities
+                    );
+
+            // Authentication oluştur
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
-                            username,
+                            userDetails,
                             null,
                             authorities
                     );
 
-            request.setAttribute("userId", userId);
-            request.setAttribute("companyId", companyId);
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // SecurityContext’e koy
+            SecurityContextHolder.getContext()
+                    .setAuthentication(authentication);
 
             filterChain.doFilter(request, response);
 
         } catch (Exception ex) {
-            ex.printStackTrace();
 
             SecurityContextHolder.clearContext();
-            response.setStatus(401);
-            response.setContentType("application/json; charset=utf-8");
-            response.getWriter().write("{\"message\":\"Unauthorized\"}");
+
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter()
+                    .write("{\"error\":\"Invalid or expired token\"}");
         }
     }
 }
