@@ -46,6 +46,23 @@ public class CashService {
                            Long userId,
                            Long companyId) {
 
+        saveTransaction(amount, description, userId, companyId);
+    }
+
+    @Transactional
+    public void addExpenseFromExpenseModule(BigDecimal amount,
+                                            String description,
+                                            Long userId,
+                                            Long companyId) {
+
+        saveTransaction(amount, description, userId, companyId);
+    }
+
+    private void saveTransaction(BigDecimal amount,
+                                 String description,
+                                 Long userId,
+                                 Long companyId) {
+
         validate(amount);
 
         CashTransaction tx =
@@ -62,8 +79,8 @@ public class CashService {
         repository.save(tx);
     }
 
-    public BigDecimal getBalance() {
-        return repository.getCurrentBalance();
+    public BigDecimal getBalance(Long companyId) {
+        return repository.getCurrentBalance(companyId);
     }
 
     private void validate(BigDecimal amount){

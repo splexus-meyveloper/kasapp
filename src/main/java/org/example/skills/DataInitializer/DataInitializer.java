@@ -35,18 +35,17 @@ public class DataInitializer {
             });
         });
 
-        // 2) Admin yoksa oluştur
+        // 🔥 ADMIN 1 (companyId=1)
         if (userRepository.findByUsername("admin").isEmpty()) {
+
             User admin = new User();
             admin.setUsername("admin");
             admin.setPasswordHash(passwordEncoder.encode("1234"));
             admin.setRole(ERole.ADMIN);
-            admin.setCompanyId(1L); // ✅ BUNU EKLE
+            admin.setCompanyId(1L);
             admin.setActive(true);
             userRepository.save(admin);
 
-
-            // 3) Admin'e tüm permissionları ata (DB üzerinden)
             for (Permission perm : permissionRepository.findAll()) {
                 UserPermission up = new UserPermission();
                 up.setUserId(admin.getId());
@@ -54,7 +53,29 @@ public class DataInitializer {
                 userPermissionRepository.save(up);
             }
 
-            System.out.println("✅ Admin oluşturuldu: admin / 1234");
+            System.out.println("✅ Admin1 oluşturuldu: admin / 1234");
+        }
+
+        // 🔥 ADMIN 2 (companyId=2)
+        if (userRepository.findByUsername("admin2").isEmpty()) {
+
+            User admin2 = new User();
+            admin2.setUsername("admin2");
+            admin2.setPasswordHash(passwordEncoder.encode("1234"));
+            admin2.setRole(ERole.ADMIN);
+            admin2.setCompanyId(2L);
+            admin2.setActive(true);
+            userRepository.save(admin2);
+
+            for (Permission perm : permissionRepository.findAll()) {
+                UserPermission up = new UserPermission();
+                up.setUserId(admin2.getId());
+                up.setPermissionId(perm.getId());
+                userPermissionRepository.save(up);
+            }
+
+            System.out.println("✅ Admin2 oluşturuldu: admin2 / 1234");
         }
     }
+
 }

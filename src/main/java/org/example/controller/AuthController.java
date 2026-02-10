@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import jakarta.validation.Valid;
 import org.example.dto.request.LoginRequest;
 import org.example.dto.request.RegisterRequest;
 import org.example.dto.response.LoginResponse;
@@ -19,7 +20,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         try {
             LoginResponse response = authService.login(request);
             return ResponseEntity.ok(response);
@@ -28,7 +29,7 @@ public class AuthController {
         }
     }
     @PostMapping("/register")
-        public void register(@RequestBody RegisterRequest request){
+        public void register(@Valid @RequestBody RegisterRequest request){
         authService.register(request);
     }
 }

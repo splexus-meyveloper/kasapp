@@ -12,14 +12,15 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     @Query("""
     SELECT COALESCE(SUM(
         CASE 
-            WHEN c.type='INCOME' THEN c.amount
+            WHEN c.type = 'INCOME' THEN c.amount
             ELSE -c.amount
         END
-    ),0)
+    ), 0)
     FROM CashTransaction c
-    WHERE c.active=true
+    WHERE c.active = true
+      AND c.companyId = :companyId
     """)
-    BigDecimal getCurrentBalance();
+    BigDecimal getCurrentBalance(Long companyId);
 
     @Query("""
 select coalesce(sum(t.amount), 0)

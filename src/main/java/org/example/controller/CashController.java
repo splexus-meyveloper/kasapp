@@ -1,10 +1,12 @@
 package org.example.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.CashRequest;
 import org.example.security.CustomUserDetails;
 import org.example.service.CashService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -16,7 +18,7 @@ public class CashController {
     private final CashService service;
 
     @PostMapping("/income")
-    public void income(@RequestBody CashRequest request,
+    public void income(@Valid @RequestBody CashRequest request,
                        @AuthenticationPrincipal CustomUserDetails user){
 
         service.addIncome(
@@ -28,7 +30,7 @@ public class CashController {
     }
 
     @PostMapping("/expense")
-    public void expense(@RequestBody CashRequest request,
+    public void expense(@Valid @RequestBody CashRequest request,
                         @AuthenticationPrincipal CustomUserDetails user){
 
         service.addExpense(
@@ -40,7 +42,7 @@ public class CashController {
     }
 
     @GetMapping("/balance")
-    public BigDecimal balance(){
-        return service.getBalance();
+    public BigDecimal balance(@AuthenticationPrincipal CustomUserDetails user) {
+        return service.getBalance(user.getCompanyId());
     }
 }
