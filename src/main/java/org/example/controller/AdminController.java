@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.SetPermissionsRequest;
 import org.example.entity.User;
@@ -42,7 +43,7 @@ public class AdminController {
     @PutMapping("/users/{userId}/permissions")
     public ResponseEntity<Void> setUserPermissions(
             @PathVariable Long userId,
-            @RequestBody SetPermissionsRequest req) {
+            @Valid @RequestBody SetPermissionsRequest req) {
 
         if (req == null || req.permissions() == null) {
             throw new KasappException(ErrorType.PERMISSION_LIST_CANNOT_BE_EMPTY);

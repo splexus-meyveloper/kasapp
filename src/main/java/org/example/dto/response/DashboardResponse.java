@@ -6,5 +6,6 @@ public record DashboardResponse(
         BigDecimal todayIncome,
         BigDecimal todayExpense,
         BigDecimal monthlyNet,
-        BigDecimal balance
+        BigDecimal balance,
+        BigDecimal checkPortfolioTotal
 ) {}
