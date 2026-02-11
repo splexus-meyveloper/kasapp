@@ -8,8 +8,10 @@ import org.example.skills.enums.TransactionType;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -60,6 +62,57 @@ public class DashboardService {
                 balance,
                 checkPortfolioTotal
         );
+    }
+
+    public Map<String,Object> getChart(Long companyId){
+
+        LocalDate today = LocalDate.now();
+
+        List<String> labels = new ArrayList<>();
+        List<BigDecimal> incomes = new ArrayList<>();
+        List<BigDecimal> expenses = new ArrayList<>();
+
+        int count = 0;
+        int i = 0;
+
+        while(count < 7){
+
+            LocalDate day = today.minusDays(i);
+
+            i++;
+
+            // Pazar ise geç
+            if(day.getDayOfWeek() == DayOfWeek.SUNDAY)
+                continue;
+
+            LocalDateTime start = day.atStartOfDay();
+            LocalDateTime end = day.plusDays(1).atStartOfDay();
+
+            BigDecimal in =
+                    repo.sumTodayIncome(companyId,
+                            TransactionType.INCOME,start,end);
+
+            BigDecimal out =
+                    repo.sumTodayExpense(companyId,
+                            TransactionType.EXPENSE,start,end);
+
+            labels.add(day.getDayOfMonth()+"");
+            incomes.add(in);
+            expenses.add(out);
+
+            count++;
+        }
+
+        Collections.reverse(labels);
+        Collections.reverse(incomes);
+        Collections.reverse(expenses);
+
+        Map<String,Object> m = new HashMap<>();
+        m.put("labels", labels);
+        m.put("incomes", incomes);
+        m.put("expenses", expenses);
+
+        return m;
     }
 }
 
