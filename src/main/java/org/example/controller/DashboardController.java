@@ -5,12 +5,14 @@ import org.example.dto.response.DashboardResponse;
 import org.example.security.CustomUserDetails;
 import org.example.service.DashboardService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+@CrossOrigin(origins = "http://127.0.0.1:5500")
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
