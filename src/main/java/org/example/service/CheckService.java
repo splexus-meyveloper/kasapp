@@ -49,9 +49,9 @@ public class CheckService {
 
     @Audit(action="CHECK_OUT")
     @Transactional
-    public void checkOut(CheckExitRequest req,
-                         Long userId,
-                         Long companyId){
+    public Check checkOut(CheckExitRequest req,
+                          Long userId,
+                          Long companyId){
 
         Check c = repository
                 .findByCheckNoAndBankAndDueDateAndCompanyId(
@@ -68,7 +68,7 @@ public class CheckService {
 
         c.setStatus(CheckStatus.CIKTI);
 
-        BigDecimal amountForLog = c.getAmount();
+        return c; // 🔥 KRİTİK SATIR
     }
 
     public List<CheckListResponse> getPortfolioChecks(Long companyId){
