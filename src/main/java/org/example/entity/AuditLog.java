@@ -2,6 +2,9 @@ package org.example.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.example.audit.AuditDetails;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -41,6 +44,10 @@ public class AuditLog {
 
     // opsiyonel ama çok faydalı (multi-tenant / firma ayrımı)
     private Long companyId;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private AuditDetails detailsJson;
 
 
 }
