@@ -27,6 +27,7 @@ public class LoanController {
                 request.bankName(),
                 request.installmentCount(),
                 request.monthlyPayment(),
+                request.paymentDay(),
                 user.getCompanyId()
         );
     }

@@ -2,8 +2,11 @@ package org.example.service;
 
 import lombok.RequiredArgsConstructor;
 import org.example.dto.response.DashboardResponse;
+import org.example.entity.Loan;
 import org.example.repository.CashTransactionRepository;
 import org.example.repository.CheckRepository;
+import org.example.repository.LoanRepository;
+import org.example.repository.NoteRepository;
 import org.example.skills.enums.TransactionType;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +20,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class DashboardService {
 
+    private final NoteRepository noteRepository;
+    private final LoanRepository loanRepository;
     private final CashTransactionRepository repo;
     private final CheckRepository checkRepo;
 
@@ -55,12 +60,21 @@ public class DashboardService {
         BigDecimal checkPortfolioTotal =
                 checkRepo.getPortfolioTotal(companyId);
 
+        // ✅ Toplam kredi borcu
+        BigDecimal totalLoanDebt =
+                loanRepository
+                        .findByCompanyIdAndActiveTrue(companyId)
+                        .stream()
+                        .map(Loan::getRemainingDebt)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return new DashboardResponse(
                 todayIncome,
                 todayExpense,
                 monthlyNet,
                 balance,
-                checkPortfolioTotal
+                checkPortfolioTotal,
+                totalLoanDebt
         );
     }
 
@@ -81,7 +95,6 @@ public class DashboardService {
 
             i++;
 
-            // Pazar ise geç
             if(day.getDayOfWeek() == DayOfWeek.SUNDAY)
                 continue;
 
@@ -115,5 +128,3 @@ public class DashboardService {
         return m;
     }
 }
-
-

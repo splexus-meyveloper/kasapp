@@ -6,10 +6,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record LoanCreateRequest(
-        Banka bankName,
+
         BigDecimal loanAmount,
+        LocalDate endDate,
+        Banka bankName,
         Integer installmentCount,
         BigDecimal monthlyPayment,
-        LocalDate endDate
-) {
-}
+        Integer paymentDay
+
+) {}

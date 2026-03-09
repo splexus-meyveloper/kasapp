@@ -33,6 +33,7 @@ public class LoanService {
                            Banka bankName,
                            Integer installmentCount,
                            BigDecimal monthlyPayment,
+                           Integer paymentDay,
                            Long companyId) {
 
         LocalDate startDate = LocalDate.now();
@@ -76,6 +77,7 @@ public class LoanService {
                 .installmentCount(installmentCount)
                 .paidInstallments(0)
                 .monthlyPayment(monthlyPayment)
+                .paymentDay(paymentDay)
                 .startDate(startDate)
                 .endDate(endDate)
                 .active(true)

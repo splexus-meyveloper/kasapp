@@ -49,4 +49,6 @@ public class Loan {
     private boolean active = true;
 
     private LocalDateTime createdAt;
+
+    private Integer paymentDay;
 }
