@@ -29,7 +29,7 @@ public class ExpenseService {
                 .type(req.expenseType())
                 .amount(req.amount())
                 .description(req.description())
-                .expenseDate(LocalDate.now()) // ✅ otomatik tarih
+                .expenseDate(LocalDate.now())
                 .createdAt(LocalDateTime.now())
                 .createdBy(userId)
                 .build();
@@ -44,4 +44,5 @@ public class ExpenseService {
                 companyId
         );
     }
+
 }

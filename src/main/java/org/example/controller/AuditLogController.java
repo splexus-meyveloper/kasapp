@@ -7,6 +7,7 @@ import org.example.dto.response.AuditLogResponse;
 import org.example.entity.AuditLog;
 import org.example.repository.AuditLogRepository;
 import org.example.security.CustomUserDetails;
+import org.example.service.AuditService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,7 @@ import java.time.LocalDateTime;
 public class AuditLogController {
 
     private final AuditLogRepository repo;
+    private final AuditService service;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
@@ -90,6 +92,20 @@ public class AuditLogController {
                 pageResult.getSize(),
                 pageResult.getTotalElements(),
                 pageResult.getTotalPages()
+        );
+    }
+
+    @GetMapping("/my-actions")
+    public Page<AuditLog> getMyActions(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ){
+
+        return service.getUserLogs(
+                user.getUsername(),
+                page,
+                size
         );
     }
 }
