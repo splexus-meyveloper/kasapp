@@ -10,7 +10,8 @@ import org.example.entity.Check;
 import org.example.repository.CheckRepository;
 import org.example.skills.enums.CheckStatus;
 import org.springframework.stereotype.Service;
-
+import org.example.dto.request.CheckCollectRequest;
+import org.example.dto.request.CheckEndorseRequest;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,11 +48,11 @@ public class CheckService {
         repository.save(c);
     }
 
-    @Audit(action="CHECK_OUT")
+    @Audit(action="CHECK_COLLECT")
     @Transactional
-    public Check checkOut(CheckExitRequest req,
-                          Long userId,
-                          Long companyId){
+    public Check collect(CheckCollectRequest req,
+                         Long userId,
+                         Long companyId){
 
         Check c = repository
                 .findByCheckNoAndBankAndDueDateAndCompanyId(
@@ -63,12 +64,49 @@ public class CheckService {
                 .orElseThrow(() ->
                         new RuntimeException("Çek bulunamadı"));
 
-        if(c.getStatus()==CheckStatus.CIKTI)
-            throw new RuntimeException("Çek zaten çıkılmış");
+        if(c.getStatus()!=CheckStatus.PORTFOYDE)
+            throw new RuntimeException("Çek portföyde değil");
 
-        c.setStatus(CheckStatus.CIKTI);
+        c.setStatus(CheckStatus.TAHSIL_EDILDI);
 
-        return c; // 🔥 KRİTİK SATIR
+        // 🔥 KASA GİRİŞ
+        cashService.addIncome(
+                c.getAmount(),
+                "Çek tahsil edildi • " + c.getCheckNo(),
+                userId,
+                companyId
+        );
+
+        return c;
+    }
+
+    @Audit(action="CHECK_ENDORSE")
+    @Transactional
+    public Check endorse(CheckEndorseRequest req,
+                         Long userId,
+                         Long companyId){
+
+        Check c = repository
+                .findByCheckNoAndBankAndDueDateAndCompanyId(
+                        req.checkNo(),
+                        req.bank(),
+                        req.dueDate(),
+                        companyId
+                )
+                .orElseThrow(() ->
+                        new RuntimeException("Çek bulunamadı"));
+
+        if(c.getStatus() != CheckStatus.PORTFOYDE) {
+            throw new RuntimeException("Çek portföyde değil");
+        }
+
+        c.setStatus(CheckStatus.CIRO_EDILDI);
+
+        if(req.description() != null && !req.description().isBlank()){
+            c.setDescription(req.description());
+        }
+
+        return c;
     }
 
     public List<CheckListResponse> getPortfolioChecks(Long companyId){
@@ -80,11 +118,13 @@ public class CheckService {
                 )
                 .stream()
                 .map(c -> new CheckListResponse(
+                        c.getId(),
                         c.getCheckNo(),
                         c.getBank(),
                         c.getDueDate(),
                         c.getAmount(),
-                        c.getDescription()
+                        c.getDescription(),
+                        c.getStatus()
                 ))
                 .toList();
     }

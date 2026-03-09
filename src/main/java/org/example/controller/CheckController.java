@@ -3,7 +3,8 @@ package org.example.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.CheckEntryRequest;
-import org.example.dto.request.CheckExitRequest;
+import org.example.dto.request.CheckCollectRequest;
+import org.example.dto.request.CheckEndorseRequest;
 import org.example.dto.response.CheckListResponse;
 import org.example.entity.Check;
 import org.example.security.CustomUserDetails;
@@ -36,20 +37,34 @@ public class CheckController {
         return ResponseEntity.ok("Çek giriş yapıldı");
     }
 
-    @PostMapping("/out")
-    public ResponseEntity<?> checkOut(
-            @Valid @RequestBody CheckExitRequest req,
+    @PostMapping("/collect")
+    public ResponseEntity<?> collect(
+            @Valid @RequestBody CheckCollectRequest req,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
-
-        service.checkOut(
+        service.collect(
                 req,
                 user.getId(),
                 user.getCompanyId()
         );
 
-        return ResponseEntity.ok("Çek çıkışı yapıldı");
+        return ResponseEntity.ok("Çek tahsil edildi");
     }
+
+    @PostMapping("/endorse")
+    public ResponseEntity<?> endorse(
+            @Valid @RequestBody CheckEndorseRequest req,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        service.endorse(
+                req,
+                user.getId(),
+                user.getCompanyId()
+        );
+
+        return ResponseEntity.ok("Çek ciro edildi");
+    }
+
 
     @GetMapping("/portfolio")
     public List<CheckListResponse> portfolio(

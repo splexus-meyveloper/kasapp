@@ -7,10 +7,8 @@ import org.example.audit.AuditDesc;
 import java.time.LocalDate;
 
 public record NoteExitRequest(
-        @NotBlank String noteNo,
-        @NotNull LocalDate dueDate,
 
-        @AuditDesc
-        String description
-) {
-}
+        String noteNo,
+        LocalDate dueDate
+
+) {}

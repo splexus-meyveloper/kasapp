@@ -10,7 +10,7 @@ import org.example.service.NoteService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
+import org.example.entity.Note;
 import java.util.List;
 
 @RestController
@@ -28,12 +28,26 @@ public class NoteController {
         service.noteIn(req,user.getId(),user.getCompanyId());
     }
 
-    @PostMapping("/out")
-    public void noteOut(
-            @Valid @RequestBody NoteExitRequest req,
-            @AuthenticationPrincipal CustomUserDetails user){
+    @PostMapping("/collect")
+    public Note collect(@RequestBody NoteExitRequest req,
+                        @AuthenticationPrincipal CustomUserDetails user){
 
-        service.noteOut(req,user.getId(),user.getCompanyId());
+        return service.collect(
+                req,
+                user.getId(),
+                user.getCompanyId()
+        );
+    }
+
+    @PostMapping("/endorse")
+    public Note endorse(@RequestBody NoteExitRequest req,
+                        @AuthenticationPrincipal CustomUserDetails user){
+
+        return service.endorse(
+                req,
+                user.getId(),
+                user.getCompanyId()
+        );
     }
 
     @GetMapping("/portfolio")

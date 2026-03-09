@@ -1,6 +1,9 @@
 package org.example.skills.enums;
 
 public enum CheckStatus {
+
     PORTFOYDE,
-    CIKTI
+    TAHSIL_EDILDI,
+    CIRO_EDILDI
+
 }

@@ -10,7 +10,7 @@ import org.example.entity.Note;
 import org.example.repository.NoteRepository;
 import org.example.skills.enums.NoteStatus;
 import org.springframework.stereotype.Service;
-
+import org.example.service.CashService;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,6 +19,7 @@ import java.util.List;
 public class NoteService {
 
     private final NoteRepository repository;
+    private final CashService cashService;
     @Audit(action="NOTE_IN")
     @Transactional
     public void noteIn(NoteEntryRequest req,
@@ -43,13 +44,13 @@ public class NoteService {
         repository.save(n);
     }
 
-    @Audit(action="NOTE_OUT")
+    @Audit(action="NOTE_COLLECT")
     @Transactional
-    public Note noteOut(NoteExitRequest req,
+    public Note collect(NoteExitRequest req,
                         Long userId,
                         Long companyId){
 
-        Note note = repository
+        Note n = repository
                 .findByNoteNoAndDueDateAndCompanyId(
                         req.noteNo(),
                         req.dueDate(),
@@ -58,12 +59,43 @@ public class NoteService {
                 .orElseThrow(() ->
                         new RuntimeException("Senet bulunamadı"));
 
-        if(note.getStatus()==NoteStatus.CIKTI)
-            throw new RuntimeException("Senet zaten çıkılmış");
+        if(n.getStatus()==NoteStatus.TAHSIL_EDILDI)
+            throw new RuntimeException("Senet zaten tahsil edilmiş");
 
-        note.setStatus(NoteStatus.CIKTI);
+        n.setStatus(NoteStatus.TAHSIL_EDILDI);
 
-        return  note;
+        // 🔥 kasaya para ekle
+        cashService.addIncome(
+                n.getAmount(),
+                "Senet tahsil edildi • " + n.getNoteNo(),
+                userId,
+                companyId
+        );
+
+        return n;
+    }
+
+    @Audit(action="NOTE_ENDORSE")
+    @Transactional
+    public Note endorse(NoteExitRequest req,
+                        Long userId,
+                        Long companyId){
+
+        Note n = repository
+                .findByNoteNoAndDueDateAndCompanyId(
+                        req.noteNo(),
+                        req.dueDate(),
+                        companyId
+                )
+                .orElseThrow(() ->
+                        new RuntimeException("Senet bulunamadı"));
+
+        if(n.getStatus()==NoteStatus.CIRO_EDILDI)
+            throw new RuntimeException("Senet zaten ciro edilmiş");
+
+        n.setStatus(NoteStatus.CIRO_EDILDI);
+
+        return n;
     }
 
 
