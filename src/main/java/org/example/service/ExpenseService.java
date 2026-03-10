@@ -7,7 +7,7 @@ import org.example.dto.request.AddExpenseRequest;
 import org.example.entity.Expense;
 import org.example.repository.ExpenseRepository;
 import org.springframework.stereotype.Service;
-
+import org.example.skills.enums.AuditAction;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -18,7 +18,7 @@ public class ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final CashService cashService;
 
-    @Audit(action = "EXPENSE_ADD")
+    @Audit(action = AuditAction.EXPENSE_ADD)
     @Transactional
     public void addExpense(AddExpenseRequest req,
                            Long userId,

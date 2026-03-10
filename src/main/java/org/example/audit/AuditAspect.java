@@ -2,6 +2,7 @@ package org.example.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.example.dto.request.CheckEntryRequest;
 import org.example.dto.request.CheckExitRequest;
 import org.example.dto.request.NoteEntryRequest;
@@ -17,9 +18,10 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-
+import org.example.skills.enums.CashDirection;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -90,9 +92,34 @@ public class AuditAspect {
         String description = null;
 
         // ==============================
-        // 1️⃣ DTO'lardan yakala (mevcut sistemin)
-        // ==============================
-        for(Object arg : pjp.getArgs()){
+// 0️⃣ Method parametrelerinden yakala
+// ==============================
+
+        MethodSignature ms = (MethodSignature) pjp.getSignature();
+        Parameter[] params = ms.getMethod().getParameters();
+        Object[] args = pjp.getArgs();
+
+        for(int i = 0; i < params.length; i++){
+
+            if(params[i].isAnnotationPresent(AuditAmount.class)){
+                Object val = args[i];
+                if(val instanceof BigDecimal bd)
+                    amount = bd;
+            }
+
+            if(params[i].isAnnotationPresent(AuditDesc.class)){
+                Object val = args[i];
+                if(val instanceof String s)
+                    description = s;
+            }
+        }
+
+
+// ==============================
+// 1️⃣ DTO'lardan yakala
+// ==============================
+
+        for(Object arg : args){
 
             payload.putAll(extractPayload(arg));
             if(arg == null) continue;
@@ -150,7 +177,7 @@ public class AuditAspect {
         // 3️⃣ Log oluştur
         // ==============================
         AuditDetails details = AuditDetails.builder()
-                .action(audit.action())
+                .action(audit.action().name())
                 .amount(amount)
                 .description(description)
                 .userId(user.getId())
@@ -162,8 +189,10 @@ public class AuditAspect {
         AuditLog log = AuditLog.builder()
                 .username(user.getUsername())
                 .companyId(user.getCompanyId())
-                .action(audit.action())
+                .action(audit.action().name())
+                .cashDirection(audit.cash().name())
                 .amount(amount)
+                .description(description)
                 .detailsJson(details)
                 .createdAt(LocalDateTime.now())
                 .build();

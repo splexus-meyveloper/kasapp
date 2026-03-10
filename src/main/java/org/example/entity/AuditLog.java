@@ -45,6 +45,9 @@ public class AuditLog {
     // opsiyonel ama çok faydalı (multi-tenant / firma ayrımı)
     private Long companyId;
 
+    @Column(name = "cash_direction")
+    private String cashDirection;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private AuditDetails detailsJson;

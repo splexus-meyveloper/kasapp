@@ -3,11 +3,13 @@ package org.example.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
+import org.example.skills.enums.AuditAction;
 import org.example.dto.request.NoteEntryRequest;
 import org.example.dto.request.NoteExitRequest;
 import org.example.dto.response.NoteListResponse;
 import org.example.entity.Note;
 import org.example.repository.NoteRepository;
+import org.example.skills.enums.CashDirection;
 import org.example.skills.enums.NoteStatus;
 import org.springframework.stereotype.Service;
 import org.example.service.CashService;
@@ -20,7 +22,7 @@ public class NoteService {
 
     private final NoteRepository repository;
     private final CashService cashService;
-    @Audit(action="NOTE_IN")
+    @Audit(action = AuditAction.NOTE_IN)
     @Transactional
     public void noteIn(NoteEntryRequest req,
                        Long userId,
@@ -44,7 +46,10 @@ public class NoteService {
         repository.save(n);
     }
 
-    @Audit(action="NOTE_COLLECT")
+    @Audit(
+            action = AuditAction.NOTE_COLLECT,
+            cash = CashDirection.IN
+    )
     @Transactional
     public Note collect(NoteExitRequest req,
                         Long userId,
@@ -75,7 +80,6 @@ public class NoteService {
         return n;
     }
 
-    @Audit(action="NOTE_ENDORSE")
     @Transactional
     public Note endorse(NoteExitRequest req,
                         Long userId,

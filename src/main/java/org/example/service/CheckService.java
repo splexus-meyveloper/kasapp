@@ -3,11 +3,13 @@ package org.example.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
+import org.example.skills.enums.AuditAction;
 import org.example.dto.request.CheckEntryRequest;
 import org.example.dto.request.CheckExitRequest;
 import org.example.dto.response.CheckListResponse;
 import org.example.entity.Check;
 import org.example.repository.CheckRepository;
+import org.example.skills.enums.CashDirection;
 import org.example.skills.enums.CheckStatus;
 import org.springframework.stereotype.Service;
 import org.example.dto.request.CheckCollectRequest;
@@ -22,7 +24,10 @@ public class CheckService {
     private final CheckRepository repository;
     private final CashService cashService;
 
-    @Audit(action="CHECK_IN")
+    @Audit(
+            action = AuditAction.CHECK_IN,
+            cash = CashDirection.NONE
+    )
     @Transactional
     public void checkIn(CheckEntryRequest req,
                         Long userId,
@@ -48,7 +53,10 @@ public class CheckService {
         repository.save(c);
     }
 
-    @Audit(action="CHECK_COLLECT")
+    @Audit(
+            action = AuditAction.CHECK_COLLECT,
+            cash = CashDirection.IN
+    )
     @Transactional
     public Check collect(CheckCollectRequest req,
                          Long userId,
@@ -80,7 +88,6 @@ public class CheckService {
         return c;
     }
 
-    @Audit(action="CHECK_ENDORSE")
     @Transactional
     public Check endorse(CheckEndorseRequest req,
                          Long userId,

@@ -11,7 +11,7 @@ import org.example.repository.LoanRepository;
 import org.example.skills.enums.Banka;
 import org.example.skills.enums.TransactionType;
 import org.springframework.stereotype.Service;
-
+import org.example.skills.enums.AuditAction;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,7 +26,7 @@ public class LoanService {
     private final CashService cashService;
 
 
-    @Audit(action = "LOAN_CREATE")
+    @Audit(action = AuditAction.LOAN_CREATE)
     @Transactional
     public Loan createLoan(BigDecimal loanAmount,
                            LocalDate endDate,

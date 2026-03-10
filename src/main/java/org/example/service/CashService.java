@@ -5,12 +5,15 @@ import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
 import org.example.entity.CashTransaction;
 import org.example.repository.CashTransactionRepository;
+import org.example.skills.enums.CashDirection;
 import org.example.skills.enums.TransactionType;
 import org.springframework.stereotype.Service;
-
+import org.example.audit.AuditDesc;
+import org.example.audit.AuditAmount;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import org.example.skills.enums.AuditAction;
 
 @Service
 @RequiredArgsConstructor
@@ -19,12 +22,17 @@ public class CashService {
     private final CashTransactionRepository repository;
 
 
-    @Audit(action = "CASH_INCOME")
+    @Audit(
+            action = AuditAction.CASH_INCOME,
+            cash = CashDirection.IN
+    )
     @Transactional
-    public CashTransaction addIncome(BigDecimal amount,
-                                     String description,
-                                     Long userId,
-                                     Long companyId) {
+    public CashTransaction addIncome(
+
+            @AuditAmount BigDecimal amount,
+            @AuditDesc String description,
+            Long userId,
+            Long companyId) {
 
         return createTransaction(
                 TransactionType.INCOME,
@@ -36,12 +44,17 @@ public class CashService {
     }
 
 
-    @Audit(action = "CASH_EXPENSE")
+    @Audit(
+            action = AuditAction.CASH_EXPENSE,
+            cash = CashDirection.OUT
+    )
     @Transactional
-    public CashTransaction addExpense(BigDecimal amount,
-                                      String description,
-                                      Long userId,
-                                      Long companyId) {
+    public CashTransaction addExpense(
+
+            @AuditAmount BigDecimal amount,
+            @AuditDesc String description,
+            Long userId,
+            Long companyId) {
 
         return createTransaction(
                 TransactionType.EXPENSE,
@@ -54,10 +67,12 @@ public class CashService {
 
 
     @Transactional
-    public CashTransaction addExpenseFromExpenseModule(BigDecimal amount,
-                                                       String description,
-                                                       Long userId,
-                                                       Long companyId) {
+    public CashTransaction addExpenseFromExpenseModule(
+
+            @AuditAmount BigDecimal amount,
+            @AuditDesc String description,
+            Long userId,
+            Long companyId) {
 
         return createTransaction(
                 TransactionType.EXPENSE,
