@@ -2,6 +2,7 @@ package org.example.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import org.aspectj.bridge.IMessage;
 import org.springframework.http.HttpStatus;
 
 @Getter
@@ -19,7 +20,10 @@ public enum ErrorType {
     PASSWORD_ERROR(6001,"Girilen şifreler uyuşmamaktadır.",HttpStatus.BAD_REQUEST),
     INVALID_TRANSACTION(7001,"Kendi hesabınızı silemezsiniz.",HttpStatus.BAD_REQUEST),
     PERMISSION_LIST_CANNOT_BE_EMPTY(7002,"İzin listesi boş olamaz.",HttpStatus.BAD_REQUEST),
-    INVALID_USERNAME_OR_PASSWORD(6002,"Kullanıcı adı veya şifre hatalıdır.",HttpStatus.BAD_REQUEST);
+    INVALID_USERNAME_OR_PASSWORD(6002,"Kullanıcı adı veya şifre hatalıdır.",HttpStatus.BAD_REQUEST),
+    LAST_ADMIN_CANNOT_BE_DELETED(7003,"Son admin silinemez.",HttpStatus.BAD_REQUEST),
+    LAST_ADMIN_CANNOT_BE_CHANGED(7004,"Sistemde en az 1 admin bulunmalıdır.",HttpStatus.BAD_REQUEST),
+    CANNOT_CHANGE_OWN_ROLE(7005,"Kendi admin yetkinizi kaldıramazsınız.",HttpStatus.BAD_REQUEST);
 
 
     int code;

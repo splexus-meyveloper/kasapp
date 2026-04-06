@@ -10,16 +10,20 @@ public class CustomUserDetails implements UserDetails {
     private final Long id;
     private final Long companyId;
     private final String username;
+    private final String role;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public CustomUserDetails(Long id,
                              Long companyId,
                              String username,
+                             String role,
                              Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.companyId = companyId;
         this.username = username;
+        this.role = role;
         this.authorities = authorities;
+
     }
 
     // ✅ Custom alanlar
@@ -30,6 +34,8 @@ public class CustomUserDetails implements UserDetails {
     public Long getCompanyId() {
         return companyId;
     }
+
+    public String getRole() { return role; }
 
     // ✅ UserDetails zorunluları
     @Override

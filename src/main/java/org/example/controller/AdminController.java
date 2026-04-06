@@ -60,4 +60,16 @@ public class AdminController {
 
         adminService.deactivateUser(id, user.getId());
     }
+
+    // 🔥 ROLE DEĞİŞTİRME
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/users/{id}/role")
+    public void updateUserRole(
+            @PathVariable Long id,
+            @RequestParam String role,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        adminService.updateUserRole(id, role, currentUser.getId());
+    }
+
 }

@@ -3,13 +3,15 @@ package org.example.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.CashRequest;
+import org.example.entity.CashTransaction;
 import org.example.security.CustomUserDetails;
 import org.example.service.CashService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
+import org.example.skills.enums.ERole;
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/cash")
@@ -44,5 +46,15 @@ public class CashController {
     @GetMapping("/balance")
     public BigDecimal balance(@AuthenticationPrincipal CustomUserDetails user) {
         return service.getBalance(user.getCompanyId());
+    }
+
+    @GetMapping("/transactions")
+    public List<CashTransaction> getTransactions(@AuthenticationPrincipal CustomUserDetails user) {
+
+        return service.getTransactions(
+                user.getId(),
+                user.getCompanyId(),
+                ERole.valueOf(user.getRole())
+        );
     }
 }

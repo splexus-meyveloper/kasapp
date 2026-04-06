@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.bind.annotation.RequestParam;
 import java.util.Map;
 
 @RestController
@@ -20,14 +20,28 @@ public class DashboardController {
     private final DashboardService service;
 
     @GetMapping
-    public DashboardResponse dashboard(@AuthenticationPrincipal CustomUserDetails user) {
-        return service.getDashboard(user.getCompanyId());
+    public DashboardResponse dashboard(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestParam(required = false) Long userId
+    ) {
+        return service.getDashboard(
+                user.getCompanyId(),
+                user.getId(),
+                user.getRole(),
+                userId
+        );
     }
 
     @GetMapping("/chart")
-    public Map<String,Object> chart(
-            @AuthenticationPrincipal CustomUserDetails user){
-
-        return service.getChart(user.getCompanyId());
+    public Map<String, Object> chart(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestParam(required = false) Long userId
+    ) {
+        return service.getChart(
+                user.getCompanyId(),
+                user.getId(),
+                user.getRole(),
+                userId
+        );
     }
 }

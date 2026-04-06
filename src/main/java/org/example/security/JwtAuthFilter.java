@@ -72,6 +72,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                             userId,
                             companyId,
                             username,
+                            role,
                             authorities
                     );
 

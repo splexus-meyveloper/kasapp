@@ -9,6 +9,7 @@ import org.example.exception.KasappException;
 import org.example.repository.PermissionRepository;
 import org.example.repository.UserPermissionRepository;
 import org.example.repository.UserRepository;
+import org.example.skills.enums.ERole;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,15 +83,52 @@ public class AdminService {
                 .orElseThrow(() ->
                         new KasappException(ErrorType.USER_NOT_FOUND));
 
+        long adminCount = userRepository.countByRole(ERole.ADMIN);
+
+        // ❌ kendini silemezsin
         if (user.getId().equals(currentUserId)) {
             throw new KasappException(ErrorType.INVALID_TRANSACTION);
         }
 
+        // ❌ zaten pasif
         if (!user.isActive()) {
             throw new KasappException(ErrorType.USER_INACTIVE);
         }
 
+        // ❌ son admin silinemez
+        if (user.getRole() == ERole.ADMIN && adminCount <= 1) {
+            throw new KasappException(ErrorType.LAST_ADMIN_CANNOT_BE_DELETED);
+        }
+
         user.setActive(false);
+    }
+
+    public void updateUserRole(Long userId, String role, Long currentUserId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new KasappException(ErrorType.USER_NOT_FOUND));
+
+        ERole newRole = ERole.valueOf(role);
+
+        long adminCount = userRepository.countByRole(ERole.ADMIN);
+
+        // ❌ kendini USER yapamazsın
+        if (user.getId().equals(currentUserId) && newRole == ERole.USER) {
+            throw new KasappException(ErrorType.CANNOT_CHANGE_OWN_ROLE);
+        }
+
+        // ❌ son admin USER yapılamaz
+        if (user.getRole() == ERole.ADMIN
+                && newRole == ERole.USER
+                && adminCount <= 1) {
+
+            throw new KasappException(ErrorType.LAST_ADMIN_CANNOT_BE_CHANGED);
+        }
+
+        user.setRole(newRole);
+
+        userRepository.save(user);
     }
 
 }

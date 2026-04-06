@@ -4,8 +4,10 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
 import org.example.entity.CashTransaction;
+import org.example.entity.User;
 import org.example.repository.CashTransactionRepository;
 import org.example.skills.enums.CashDirection;
+import org.example.skills.enums.ERole;
 import org.example.skills.enums.TransactionType;
 import org.springframework.stereotype.Service;
 import org.example.audit.AuditDesc;
@@ -13,6 +15,8 @@ import org.example.audit.AuditAmount;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
+
 import org.example.skills.enums.AuditAction;
 
 @Service
@@ -117,6 +121,24 @@ public class CashService {
     private void validate(BigDecimal amount){
         if(amount == null || amount.compareTo(BigDecimal.ZERO) <= 0)
             throw new RuntimeException("Amount must be positive");
+    }
+
+    public List<CashTransaction> getTransactions(Long userId, Long companyId, ERole role) {
+
+        // ADMIN → tüm işlemler
+        if (role == ERole.ADMIN) {
+            return repository
+                    .findByCompanyIdAndActiveTrueOrderByTransactionDateDesc(
+                            companyId
+                    );
+        }
+
+        // USER → sadece kendi işlemleri
+        return repository
+                .findByCompanyIdAndUserIdAndActiveTrueOrderByTransactionDateDesc(
+                        companyId,
+                        userId
+                );
     }
 }
 
