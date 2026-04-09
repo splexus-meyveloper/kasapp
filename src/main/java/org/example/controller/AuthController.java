@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.example.dto.request.LoginRequest;
 import org.example.dto.request.RegisterRequest;
 import org.example.dto.response.LoginResponse;
+import org.example.dto.response.RegisterResponse;
 import org.example.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,5 +32,11 @@ public class AuthController {
     @PostMapping("/register")
         public void register(@Valid @RequestBody RegisterRequest request){
         authService.register(request);
+    }
+
+
+    @PostMapping("/register-company")
+    public ResponseEntity<RegisterResponse> registerCompany(@RequestBody RegisterRequest request) {
+        return ResponseEntity.ok(authService.registerCompany(request));
     }
 }

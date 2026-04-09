@@ -36,4 +36,12 @@ public class User {
 
     @Builder.Default
     private boolean active=true;
+
+    private String name;
+    private String surname;
+
+    @Column(unique = true)
+    private String email;
+
+    private String phone;
 }
