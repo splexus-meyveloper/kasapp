@@ -29,11 +29,6 @@ public class AuthController {
             return ResponseEntity.status(401).body(e.getMessage());
         }
     }
-    @PostMapping("/register")
-        public void register(@Valid @RequestBody RegisterRequest request){
-        authService.register(request);
-    }
-
 
     @PostMapping("/register-company")
     public ResponseEntity<RegisterResponse> registerCompany(@RequestBody RegisterRequest request) {

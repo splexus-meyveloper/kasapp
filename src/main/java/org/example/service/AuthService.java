@@ -146,39 +146,4 @@ public class AuthService {
                 request.username()
         );
     }
-
-    // 👤 ADMIN → ALT KULLANICI EKLE
-    public void register(RegisterRequest request){
-
-        CustomUserDetails currentUser =
-                (CustomUserDetails) SecurityContextHolder
-                        .getContext()
-                        .getAuthentication()
-                        .getPrincipal();
-
-        Long adminUserId = currentUser.getId();
-
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new KasappException(ErrorType.ADMIN_NOT_FOUND));
-
-        if (adminUser.getRole() != ERole.ADMIN) {
-            throw new KasappException(ErrorType.PERMISSION_NOT_FOUND);
-        }
-
-        // aynı username var mı kontrol
-        if (userRepository
-                .findByCompanyIdAndUsername(adminUser.getCompanyId(), request.username())
-                .isPresent()) {
-            throw new KasappException(ErrorType.USER_ALREADY_EXISTS);
-        }
-
-        User user = new User();
-        user.setUsername(request.username());
-        user.setCompanyId(adminUser.getCompanyId());
-        user.setRole(ERole.USER);
-        user.setActive(true);
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-
-        userRepository.save(user);
-    }
 }
