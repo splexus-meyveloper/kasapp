@@ -5,12 +5,13 @@ import lombok.RequiredArgsConstructor;
 import org.example.dto.request.NoteEntryRequest;
 import org.example.dto.request.NoteExitRequest;
 import org.example.dto.response.NoteListResponse;
+import org.example.entity.Note;
 import org.example.security.CustomUserDetails;
 import org.example.service.NoteService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.example.entity.Note;
+
 import java.util.List;
 
 @RestController
@@ -25,7 +26,7 @@ public class NoteController {
             @Valid @RequestBody NoteEntryRequest req,
             @AuthenticationPrincipal CustomUserDetails user){
 
-        service.noteIn(req,user.getId(),user.getCompanyId());
+        service.noteIn(req, user.getId(), user.getCompanyId());
     }
 
     @PostMapping("/collect")
@@ -64,4 +65,3 @@ public class NoteController {
         );
     }
 }
-

@@ -56,11 +56,7 @@ public class NoteService {
                         Long companyId){
 
         Note n = repository
-                .findByNoteNoAndDueDateAndCompanyId(
-                        req.noteNo(),
-                        req.dueDate(),
-                        companyId
-                )
+                .findByIdAndCompanyId(req.id(), companyId)
                 .orElseThrow(() ->
                         new RuntimeException("Senet bulunamadı"));
 
@@ -86,11 +82,7 @@ public class NoteService {
                         Long companyId){
 
         Note n = repository
-                .findByNoteNoAndDueDateAndCompanyId(
-                        req.noteNo(),
-                        req.dueDate(),
-                        companyId
-                )
+                .findByIdAndCompanyId(req.id(), companyId)
                 .orElseThrow(() ->
                         new RuntimeException("Senet bulunamadı"));
 
@@ -112,6 +104,7 @@ public class NoteService {
                 )
                 .stream()
                 .map(n -> new NoteListResponse(
+                        n.getId(),
                         n.getNoteNo(),
                         n.getDueDate(),
                         n.getAmount(),

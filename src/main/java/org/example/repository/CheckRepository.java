@@ -24,6 +24,8 @@ public interface CheckRepository extends JpaRepository<Check,Long> {
             Long companyId
     );
 
+    Optional<Check> findByIdAndCompanyId(Long id, Long companyId);
+
     @Query("""
    SELECT COALESCE(SUM(c.amount),0)
    FROM Check c

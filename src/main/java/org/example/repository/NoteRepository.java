@@ -24,6 +24,8 @@ public interface NoteRepository
             Long companyId
     );
 
+    Optional<Note> findByIdAndCompanyId(Long id, Long companyId);
+
     List<Note> findByStatusAndCompanyId(
             NoteStatus status,
             Long companyId
@@ -37,4 +39,3 @@ public interface NoteRepository
     """)
     BigDecimal portfolioTotal(Long companyId);
 }
-

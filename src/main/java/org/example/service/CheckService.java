@@ -63,12 +63,7 @@ public class CheckService {
                          Long companyId){
 
         Check c = repository
-                .findByCheckNoAndBankAndDueDateAndCompanyId(
-                        req.checkNo(),
-                        req.bank(),
-                        req.dueDate(),
-                        companyId
-                )
+                .findByIdAndCompanyId(req.id(), companyId)
                 .orElseThrow(() ->
                         new RuntimeException("Çek bulunamadı"));
 
@@ -94,12 +89,7 @@ public class CheckService {
                          Long companyId){
 
         Check c = repository
-                .findByCheckNoAndBankAndDueDateAndCompanyId(
-                        req.checkNo(),
-                        req.bank(),
-                        req.dueDate(),
-                        companyId
-                )
+                .findByIdAndCompanyId(req.id(), companyId)
                 .orElseThrow(() ->
                         new RuntimeException("Çek bulunamadı"));
 
