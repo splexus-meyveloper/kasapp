@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.example.skills.enums.Banka;
 import org.example.skills.enums.CheckStatus;
+import org.example.skills.enums.CheckType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -38,6 +39,9 @@ public class Check {
 
     @Enumerated(EnumType.STRING)
     private CheckStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private CheckType checkType;
 
     private Long companyId;
 

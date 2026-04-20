@@ -22,6 +22,7 @@ public class NoteService {
 
     private final NoteRepository repository;
     private final CashService cashService;
+    private final RealtimeEventService realtimeEventService;
     @Audit(action = AuditAction.NOTE_IN)
     @Transactional
     public void noteIn(NoteEntryRequest req,
@@ -44,6 +45,7 @@ public class NoteService {
                 .build();
 
         repository.save(n);
+        realtimeEventService.publish("SENET", "NOTE_IN", companyId, n.getId());
     }
 
     @Audit(
@@ -73,6 +75,7 @@ public class NoteService {
                 companyId
         );
 
+        realtimeEventService.publish("SENET", "NOTE_COLLECT", companyId, n.getId());
         return n;
     }
 
@@ -91,6 +94,7 @@ public class NoteService {
 
         n.setStatus(NoteStatus.CIRO_EDILDI);
 
+        realtimeEventService.publish("SENET", "NOTE_ENDORSE", companyId, n.getId());
         return n;
     }
 

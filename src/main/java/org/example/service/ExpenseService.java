@@ -17,6 +17,7 @@ public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final CashService cashService;
+    private final RealtimeEventService realtimeEventService;
 
     @Audit(action = AuditAction.EXPENSE_ADD)
     @Transactional
@@ -35,6 +36,7 @@ public class ExpenseService {
                 .build();
 
         expenseRepository.save(expense);
+        realtimeEventService.publish("MASRAF", "EXPENSE_ADD", companyId, expense.getId());
 
         // kasadan düş
         cashService.addExpenseFromExpenseModule(

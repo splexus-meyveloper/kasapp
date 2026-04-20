@@ -9,6 +9,7 @@ public enum AuditAction {
     CHECK_COLLECT,
     CHECK_ENDORSE,
     CHECK_OUT,
+    CHECK_PAID,
 
     NOTE_IN,
     NOTE_COLLECT,

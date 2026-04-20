@@ -32,6 +32,9 @@ public class SecurityConfig {
                         // AUTH
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // WEBSOCKET
+                        .requestMatchers("/ws/**").permitAll()
+
                         // SWAGGER
                         .requestMatchers(
                                 "/swagger-ui/**",

@@ -24,6 +24,7 @@ import org.example.skills.enums.AuditAction;
 public class CashService {
 
     private final CashTransactionRepository repository;
+    private final RealtimeEventService realtimeEventService;
 
 
     @Audit(
@@ -38,13 +39,17 @@ public class CashService {
             Long userId,
             Long companyId) {
 
-        return createTransaction(
+        CashTransaction tx = createTransaction(
                 TransactionType.INCOME,
                 amount,
                 description,
                 userId,
                 companyId
         );
+
+        realtimeEventService.publish("KASA", "CASH_INCOME", companyId, tx.getId());
+
+        return tx;
     }
 
 
@@ -60,13 +65,17 @@ public class CashService {
             Long userId,
             Long companyId) {
 
-        return createTransaction(
+        CashTransaction tx = createTransaction(
                 TransactionType.EXPENSE,
                 amount,
                 description,
                 userId,
                 companyId
         );
+
+        realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
+
+        return tx;
     }
 
 
@@ -78,13 +87,17 @@ public class CashService {
             Long userId,
             Long companyId) {
 
-        return createTransaction(
+        CashTransaction tx = createTransaction(
                 TransactionType.EXPENSE,
                 amount,
                 description,
                 userId,
                 companyId
         );
+
+        realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
+
+        return tx;
     }
 
 

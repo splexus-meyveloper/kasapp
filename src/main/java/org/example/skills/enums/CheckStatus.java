@@ -4,6 +4,7 @@ public enum CheckStatus {
 
     PORTFOYDE,
     TAHSIL_EDILDI,
-    CIRO_EDILDI
+    CIRO_EDILDI,
+    ODENDI
 
 }

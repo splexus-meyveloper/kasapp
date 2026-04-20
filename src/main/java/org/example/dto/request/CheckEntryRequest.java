@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import org.example.audit.AuditAmount;
 import org.example.audit.AuditDesc;
 import org.example.skills.enums.Banka;
+import org.example.skills.enums.CheckType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,5 +30,8 @@ public record CheckEntryRequest(
         @NotBlank
         @Size(max = 255)
         @AuditDesc
-        String description
+        String description,
+
+        @NotNull
+        CheckType checkType
 ) {}

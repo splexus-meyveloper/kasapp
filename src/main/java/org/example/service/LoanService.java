@@ -24,6 +24,7 @@ public class LoanService {
 
     private final LoanRepository repository;
     private final CashService cashService;
+    private final RealtimeEventService realtimeEventService;
 
 
     @Audit(action = AuditAction.LOAN_CREATE)
@@ -84,7 +85,9 @@ public class LoanService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return repository.save(loan);
+        Loan saved = repository.save(loan);
+        realtimeEventService.publish("KREDI", "LOAN_CREATE", companyId, saved.getId());
+        return saved;
     }
 
 
@@ -138,6 +141,7 @@ public class LoanService {
                 companyId
         );
 
+        realtimeEventService.publish("KREDI", "LOAN_INSTALLMENT", companyId, loan.getId());
         return loan;
     }
 
