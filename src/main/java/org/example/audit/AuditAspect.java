@@ -188,11 +188,14 @@ public class AuditAspect {
 
         AuditLog log = AuditLog.builder()
                 .username(user.getUsername())
+                .userId(user.getId())                 // 🔥 EKLENDİ
                 .companyId(user.getCompanyId())
                 .action(audit.action().name())
                 .cashDirection(audit.cash().name())
                 .amount(amount)
                 .description(description)
+                .entityType(resolveEntityType(pjp))   // 🔥 EKLENDİ
+                .entityId(resolveEntityId(result))    // 🔥 EKLENDİ
                 .detailsJson(details)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -200,6 +203,35 @@ public class AuditAspect {
         auditLogRepository.save(log);
 
         return result;
+    }
+
+    private String resolveEntityType(ProceedingJoinPoint pjp) {
+
+        String className = pjp.getTarget().getClass().getSimpleName();
+
+        if (className.contains("Cash")) return "CASH_TRANSACTION";
+        if (className.contains("Check")) return "CHECK";
+        if (className.contains("Note")) return "NOTE";
+        if (className.contains("Loan")) return "LOAN";
+        if (className.contains("Expense")) return "EXPENSE";
+
+        return "UNKNOWN";
+    }
+
+    private Long resolveEntityId(Object result) {
+
+        if (result == null) return null;
+
+        try {
+            Method m = result.getClass().getMethod("getId");
+            Object val = m.invoke(result);
+
+            if (val instanceof Long id)
+                return id;
+
+        } catch (Exception ignored) {}
+
+        return null;
     }
 
 }

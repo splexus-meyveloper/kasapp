@@ -47,6 +47,7 @@ public class ChangeRequestService {
         String newDataJson = objectMapper.writeValueAsString(newData);
 
         ChangeRequest request = ChangeRequest.builder()
+                .companyId(companyId)
                 .entityType("CASH")
                 .entityId(existing.getId())
                 .actionType(ChangeRequestAction.UPDATE)
@@ -61,8 +62,13 @@ public class ChangeRequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChangeRequestResponseDto> getPendingRequests() {
-        return changeRequestRepository.findByStatusOrderByRequestedAtDesc(ChangeRequestStatus.PENDING)
+    public List<ChangeRequestResponseDto> getPendingRequests(Long companyId) {
+
+        return changeRequestRepository
+                .findByCompanyIdAndStatusOrderByRequestedAtDesc(
+                        companyId,
+                        ChangeRequestStatus.PENDING
+                )
                 .stream()
                 .map(req -> new ChangeRequestResponseDto(
                         req.getId(),

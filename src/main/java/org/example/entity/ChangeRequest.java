@@ -34,6 +34,7 @@ public class ChangeRequest {
     private String newData;
 
     private Long requestedBy;
+    private Long companyId;
 
     private LocalDateTime requestedAt;
 

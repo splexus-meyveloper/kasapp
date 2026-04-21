@@ -29,6 +29,7 @@ public class AuditLog {
 
     @Column(nullable = false, length = 100)
     private String username;
+    private Long userId;
 
     @Column(nullable = false, length = 80)
     private String action; // CASH_INCOME, CASH_EXPENSE, USER_CREATE, ...
@@ -51,6 +52,10 @@ public class AuditLog {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private AuditDetails detailsJson;
+
+    private Long entityId;
+
+    private String entityType;
 
 
 }

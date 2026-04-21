@@ -8,5 +8,13 @@ import java.util.List;
 
 public interface ChangeRequestRepository extends JpaRepository<ChangeRequest, Long> {
 
-    List<ChangeRequest> findByStatusOrderByRequestedAtDesc(ChangeRequestStatus status);
+    List<ChangeRequest> findByCompanyIdAndStatusOrderByRequestedAtDesc(
+            Long companyId,
+            ChangeRequestStatus status
+    );
+
+    List<ChangeRequest> findByCompanyIdAndRequestedByOrderByRequestedAtDesc(
+            Long companyId,
+            Long requestedBy
+    );
 }

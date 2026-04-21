@@ -3,9 +3,12 @@ package org.example.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.CashUpdateRequestDto;
+import org.example.entity.User;
 import org.example.security.CustomUserDetails;
 import org.example.service.ChangeRequestService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,10 +32,22 @@ public class ChangeRequestController {
         );
     }
 
+    private final ChangeRequestService service;
+
     // ADMIN -> pending talepleri listeler
     @GetMapping("/pending")
-    public Object getPendingRequests() {
-        return changeRequestService.getPendingRequests();
+    public ResponseEntity<?> pending() {
+
+        User user = (User) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        Long companyId = user.getCompanyId();
+
+        return ResponseEntity.ok(
+                service.getPendingRequests(companyId)
+        );
     }
 
     // ADMIN -> onaylar
