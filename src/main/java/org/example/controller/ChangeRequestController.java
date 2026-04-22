@@ -3,12 +3,10 @@ package org.example.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.CashUpdateRequestDto;
-import org.example.entity.User;
 import org.example.security.CustomUserDetails;
 import org.example.service.ChangeRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,11 +16,13 @@ public class ChangeRequestController {
 
     private final ChangeRequestService changeRequestService;
 
-    // USER -> kasa hareketi düzenleme talebi gönderir
+    // 🔵 USER → talep oluştur
     @PostMapping("/cash/{cashId}")
-    public void requestCashUpdate(@PathVariable Long cashId,
-                                  @Valid @RequestBody CashUpdateRequestDto dto,
-                                  @AuthenticationPrincipal CustomUserDetails user) throws Exception {
+    public ResponseEntity<?> requestCashUpdate(
+            @PathVariable Long cashId,
+            @Valid @RequestBody CashUpdateRequestDto dto,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
 
         changeRequestService.createCashUpdateRequest(
                 cashId,
@@ -30,46 +30,49 @@ public class ChangeRequestController {
                 user.getId(),
                 user.getCompanyId()
         );
+
+        return ResponseEntity.ok("Talep başarıyla oluşturuldu");
     }
 
-    private final ChangeRequestService service;
-
-    // ADMIN -> pending talepleri listeler
+    // 🔵 ADMIN → pending talepler
     @GetMapping("/pending")
-    public ResponseEntity<?> pending() {
-
-        User user = (User) SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getPrincipal();
-
-        Long companyId = user.getCompanyId();
+    public ResponseEntity<?> pending(
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
 
         return ResponseEntity.ok(
-                service.getPendingRequests(companyId)
+                changeRequestService.getPendingRequests(user.getCompanyId())
         );
     }
 
-    // ADMIN -> onaylar
+    // 🟢 ADMIN → onay
     @PostMapping("/{requestId}/approve")
-    public void approveRequest(@PathVariable Long requestId,
-                               @AuthenticationPrincipal CustomUserDetails user) throws Exception {
+    public ResponseEntity<?> approveRequest(
+            @PathVariable Long requestId,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
 
         changeRequestService.approveRequest(
                 requestId,
                 user.getId(),
                 user.getCompanyId()
         );
+
+        return ResponseEntity.ok("Talep onaylandı");
     }
 
-    // ADMIN -> reddeder
+    // 🔴 ADMIN → red
     @PostMapping("/{requestId}/reject")
-    public void rejectRequest(@PathVariable Long requestId,
-                              @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<?> rejectRequest(
+            @PathVariable Long requestId,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
 
         changeRequestService.rejectRequest(
                 requestId,
                 user.getId()
         );
+
+        return ResponseEntity.ok("Talep reddedildi");
     }
 }

@@ -13,6 +13,7 @@ public record ChangeRequestResponseDto(
         String oldData,
         String newData,
         Long requestedBy,
+        String requestedByUsername,
         LocalDateTime requestedAt,
         ChangeRequestStatus status,
         Long approvedBy,

@@ -56,14 +56,26 @@ public class AuditLogController {
 
         Long companyId = user.getCompanyId();
 
-        Specification<AuditLog> spec = Specification
-                .where(AuditLogSpecifications.companyIdEquals(companyId))
-                .and(AuditLogSpecifications.usernameContains(username))
-                .and(AuditLogSpecifications.actionEquals(action))
-                .and(AuditLogSpecifications.amountGte(minAmount))
-                .and(AuditLogSpecifications.amountLte(maxAmount))
-                .and(AuditLogSpecifications.descriptionContains(q))
-                .and(AuditLogSpecifications.createdBetween(start, end));
+        Specification<AuditLog> spec;
+
+        if ("ADMIN".equals(user.getRole())) {
+            spec = Specification
+                    .where(AuditLogSpecifications.usernameContains(username))
+                    .and(AuditLogSpecifications.actionEquals(action))
+                    .and(AuditLogSpecifications.amountGte(minAmount))
+                    .and(AuditLogSpecifications.amountLte(maxAmount))
+                    .and(AuditLogSpecifications.descriptionContains(q))
+                    .and(AuditLogSpecifications.createdBetween(start, end));
+        } else {
+            spec = Specification
+                    .where(AuditLogSpecifications.companyIdEquals(companyId))
+                    .and(AuditLogSpecifications.usernameContains(username))
+                    .and(AuditLogSpecifications.actionEquals(action))
+                    .and(AuditLogSpecifications.amountGte(minAmount))
+                    .and(AuditLogSpecifications.amountLte(maxAmount))
+                    .and(AuditLogSpecifications.descriptionContains(q))
+                    .and(AuditLogSpecifications.createdBetween(start, end));
+        }
 
 
         int page = Math.max(pageable.getPageNumber(), 0);
