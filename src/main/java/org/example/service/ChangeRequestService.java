@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -66,13 +67,19 @@ public class ChangeRequestService {
 
             request = changeRequestRepository.save(request);
 
-            Map<String, Object> payload = Map.of(
-                    "requestId", request.getId(),
-                    "entityType", request.getEntityType(),
-                    "entityId", request.getEntityId(),
-                    "oldData", objectMapper.readValue(request.getOldData(), Object.class),
-                    "newData", objectMapper.readValue(request.getNewData(), Object.class)
-            );
+            // 🔥 FIX: HashMap + null kontrolü
+            Map<String, Object> payload = new HashMap<>();
+
+            payload.put("requestId", request.getId());
+            payload.put("entityType", request.getEntityType());
+            payload.put("entityId", request.getEntityId());
+
+            if (request.getOldData() != null) {
+                payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
+            }
+            if (request.getNewData() != null) {
+                payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
+            }
 
             auditService.log(
                     AuditAction.CASH_UPDATE_REQUEST_CREATED,
@@ -160,15 +167,21 @@ public class ChangeRequestService {
 
             request = changeRequestRepository.save(request);
 
-            Map<String, Object> payload = Map.of(
-                    "requestId", request.getId(),
-                    "entityType", request.getEntityType(),
-                    "entityId", request.getEntityId(),
-                    "oldData", objectMapper.readValue(request.getOldData(), Object.class),
-                    "newData", objectMapper.readValue(request.getNewData(), Object.class),
-                    "approvedBy", adminId,
-                    "approvedAt", request.getApprovedAt().toString()
-            );
+            // 🔥 FIX
+            Map<String, Object> payload = new HashMap<>();
+
+            payload.put("requestId", request.getId());
+            payload.put("entityType", request.getEntityType());
+            payload.put("entityId", request.getEntityId());
+            payload.put("approvedBy", adminId);
+            payload.put("approvedAt", request.getApprovedAt().toString());
+
+            if (request.getOldData() != null) {
+                payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
+            }
+            if (request.getNewData() != null) {
+                payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
+            }
 
             auditService.log(
                     AuditAction.CASH_UPDATE_REQUEST_APPROVED,
@@ -200,15 +213,21 @@ public class ChangeRequestService {
 
             request = changeRequestRepository.save(request);
 
-            Map<String, Object> payload = Map.of(
-                    "requestId", request.getId(),
-                    "entityType", request.getEntityType(),
-                    "entityId", request.getEntityId(),
-                    "oldData", objectMapper.readValue(request.getOldData(), Object.class),
-                    "newData", objectMapper.readValue(request.getNewData(), Object.class),
-                    "rejectedBy", adminId,
-                    "rejectedAt", request.getApprovedAt().toString()
-            );
+            // 🔥 FIX
+            Map<String, Object> payload = new HashMap<>();
+
+            payload.put("requestId", request.getId());
+            payload.put("entityType", request.getEntityType());
+            payload.put("entityId", request.getEntityId());
+            payload.put("rejectedBy", adminId);
+            payload.put("rejectedAt", request.getApprovedAt().toString());
+
+            if (request.getOldData() != null) {
+                payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
+            }
+            if (request.getNewData() != null) {
+                payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
+            }
 
             auditService.log(
                     AuditAction.CASH_UPDATE_REQUEST_REJECTED,

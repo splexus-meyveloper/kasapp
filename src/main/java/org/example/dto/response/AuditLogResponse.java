@@ -1,6 +1,6 @@
 package org.example.dto.response;
 
-
+import org.example.audit.AuditDetails;
 import org.example.entity.AuditLog;
 
 import java.math.BigDecimal;
@@ -12,7 +12,8 @@ public record AuditLogResponse(
         String action,
         BigDecimal amount,
         String description,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        AuditDetails detailsJson   // ✅ EKLENDİ
 ) {
     public static AuditLogResponse from(AuditLog l) {
         return new AuditLogResponse(
@@ -21,7 +22,8 @@ public record AuditLogResponse(
                 l.getAction(),
                 l.getAmount(),
                 l.getDescription(),
-                l.getCreatedAt()
+                l.getCreatedAt(),
+                l.getDetailsJson()   // ✅ EKLENDİ
         );
     }
 }
