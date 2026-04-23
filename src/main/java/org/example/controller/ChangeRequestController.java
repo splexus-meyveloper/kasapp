@@ -3,6 +3,8 @@ package org.example.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.CashUpdateRequestDto;
+import org.example.dto.request.CheckUpdateRequestDto;
+import org.example.dto.request.NoteUpdateRequestDto;
 import org.example.security.CustomUserDetails;
 import org.example.service.ChangeRequestService;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +18,7 @@ public class ChangeRequestController {
 
     private final ChangeRequestService changeRequestService;
 
-    // 🔵 USER → talep oluştur
+    // CASH
     @PostMapping("/cash/{cashId}")
     public ResponseEntity<?> requestCashUpdate(
             @PathVariable Long cashId,
@@ -34,18 +36,53 @@ public class ChangeRequestController {
         return ResponseEntity.ok("Talep başarıyla oluşturuldu");
     }
 
-    // 🔵 ADMIN → pending talepler
+    // CHECK
+    @PostMapping("/check/{checkId}")
+    public ResponseEntity<?> requestCheckUpdate(
+            @PathVariable Long checkId,
+            @Valid @RequestBody CheckUpdateRequestDto dto,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+
+        changeRequestService.createCheckUpdateRequest(
+                checkId,
+                dto,
+                user.getId(),
+                user.getCompanyId()
+        );
+
+        return ResponseEntity.ok("Çek düzenleme talebi oluşturuldu");
+    }
+
+    // NOTE
+    @PostMapping("/note/{noteId}")
+    public ResponseEntity<?> requestNoteUpdate(
+            @PathVariable Long noteId,
+            @Valid @RequestBody NoteUpdateRequestDto dto,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+
+        changeRequestService.createNoteUpdateRequest(
+                noteId,
+                dto,
+                user.getId(),
+                user.getCompanyId()
+        );
+
+        return ResponseEntity.ok("Senet düzenleme talebi oluşturuldu");
+    }
+
+    // ADMIN → pending
     @GetMapping("/pending")
     public ResponseEntity<?> pending(
             @AuthenticationPrincipal CustomUserDetails user
     ) {
-
         return ResponseEntity.ok(
                 changeRequestService.getPendingRequests(user.getCompanyId())
         );
     }
 
-    // 🟢 ADMIN → onay
+    // APPROVE
     @PostMapping("/{requestId}/approve")
     public ResponseEntity<?> approveRequest(
             @PathVariable Long requestId,
@@ -61,7 +98,7 @@ public class ChangeRequestController {
         return ResponseEntity.ok("Talep onaylandı");
     }
 
-    // 🔴 ADMIN → red
+    // REJECT
     @PostMapping("/{requestId}/reject")
     public ResponseEntity<?> rejectRequest(
             @PathVariable Long requestId,

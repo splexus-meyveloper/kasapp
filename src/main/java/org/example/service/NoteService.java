@@ -25,7 +25,7 @@ public class NoteService {
     private final RealtimeEventService realtimeEventService;
     @Audit(action = AuditAction.NOTE_IN)
     @Transactional
-    public void noteIn(NoteEntryRequest req,
+    public Note noteIn(NoteEntryRequest req,
                        Long userId,
                        Long companyId){
 
@@ -44,8 +44,10 @@ public class NoteService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        repository.save(n);
+        n = repository.save(n);
         realtimeEventService.publish("SENET", "NOTE_IN", companyId, n.getId());
+
+        return n;
     }
 
     @Audit(

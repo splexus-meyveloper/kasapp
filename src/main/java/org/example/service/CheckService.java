@@ -30,9 +30,9 @@ public class CheckService {
             cash = CashDirection.NONE
     )
     @Transactional
-    public void checkIn(CheckEntryRequest req,
-                        Long userId,
-                        Long companyId){
+    public Check checkIn(CheckEntryRequest req,
+                         Long userId,
+                         Long companyId){
 
         if(repository.existsByCheckNoAndCompanyId(
                 req.checkNo(),companyId)){
@@ -52,8 +52,10 @@ public class CheckService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        repository.save(c);
+        c = repository.save(c);
         realtimeEventService.publish("CEK", "CHECK_IN", companyId, c.getId());
+
+        return c;
     }
 
     @Audit(

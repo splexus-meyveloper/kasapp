@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -24,4 +25,13 @@ public class MyActivityDto {
 
     private Long entityId;
     private String entityType;
+
+    // CHECK prefill
+    private String checkNo;
+    private String bank;
+    private LocalDate dueDate;
+
+    // NOTE prefill
+    private String noteNo;
+    private String debtor;
 }
