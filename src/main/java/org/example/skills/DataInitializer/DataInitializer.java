@@ -1,4 +1,5 @@
 package org.example.skills.DataInitializer;
+
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.example.entity.Permission;
@@ -9,12 +10,14 @@ import org.example.repository.UserPermissionRepository;
 import org.example.repository.UserRepository;
 import org.example.skills.enums.EPermission;
 import org.example.skills.enums.ERole;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 
 @Component
+@Profile("dev")   // ← Sadece dev ortamında çalışır, production'da devre dışı
 @RequiredArgsConstructor
 public class DataInitializer {
 
@@ -26,7 +29,8 @@ public class DataInitializer {
     @PostConstruct
     public void init() {
 
-        // 1) Permission'ları oluştur
+        // Permission'ları oluştur (tüm ortamlarda gerekli olabilir,
+        // ama test kullanıcıları sadece dev'de oluşturulsun)
         Arrays.stream(EPermission.values()).forEach(p -> {
             permissionRepository.findByCode(p.name()).orElseGet(() -> {
                 Permission perm = new Permission();
@@ -35,9 +39,8 @@ public class DataInitializer {
             });
         });
 
-        // 🔥 ADMIN 1 (companyId=1)
+        // Test admin 1
         if (userRepository.findByUsername("admin").isEmpty()) {
-
             User admin = new User();
             admin.setUsername("admin");
             admin.setPasswordHash(passwordEncoder.encode("1234"));
@@ -56,9 +59,8 @@ public class DataInitializer {
             System.out.println("✅ Admin1 oluşturuldu: admin / 1234");
         }
 
-        // 🔥 ADMIN 2 (companyId=2)
+        // Test admin 2
         if (userRepository.findByUsername("admin2").isEmpty()) {
-
             User admin2 = new User();
             admin2.setUsername("admin2");
             admin2.setPasswordHash(passwordEncoder.encode("1234"));
@@ -77,5 +79,4 @@ public class DataInitializer {
             System.out.println("✅ Admin2 oluşturuldu: admin2 / 1234");
         }
     }
-
 }

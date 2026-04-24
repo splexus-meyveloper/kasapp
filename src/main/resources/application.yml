@@ -1,16 +1,18 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}   # ← BURAYA EKLE
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/kasadatabase
-    username: postgres
-    password: root
+    url:      ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/kasadatabase}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         type:
@@ -18,6 +20,11 @@ spring:
 
 kasadeneme3:
   jwt:
-    secret-key: "52şjk34k%B'J^+KJ%'^LŞ+%JS2kŞ^+J%'LK^J+5kl2j35"
-    issuer: kasapi
+    secret-key: ${KASADENEME3_JWT_SECRET_KEY:DEV_ONLY_CHANGE_IN_PRODUCTION_MIN32CH}
+    issuer:     ${KASADENEME3_JWT_ISSUER:kasapi}
 
+  cors:
+    allowed-origins: ${KASADENEME3_CORS_ALLOWED_ORIGINS:http://localhost:5500,http://127.0.0.1:5500}
+
+  swagger:
+    enabled: ${KASADENEME3_SWAGGER_ENABLED:true}

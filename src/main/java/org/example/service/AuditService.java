@@ -19,25 +19,26 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuditService {
 
+    private static final int MAX_PAGE_SIZE = 50;
+
     private final AuditLogRepository repository;
     private final UserRepository userRepository;
 
-    public Page<AuditLog> getUserLogs(String username, int page, int size){
+    public Page<AuditLog> getUserLogs(String username, int page, int size) {
 
-        PageRequest pageable =
-                PageRequest.of(
-                        page,
-                        size,
-                        Sort.by("createdAt").descending()
-                );
+        // Limit aşılmasın
+        int safeSize = Math.min(size > 0 ? size : 20, MAX_PAGE_SIZE);
+        int safePage = Math.max(page, 0);
 
-        return repository.findByUsernameOrderByCreatedAtDesc(
-                username,
-                pageable
+        PageRequest pageable = PageRequest.of(
+                safePage,
+                safeSize,
+                Sort.by("createdAt").descending()
         );
+
+        return repository.findByUsernameOrderByCreatedAtDesc(username, pageable);
     }
 
-    // 🔥 ANA LOG METHOD
     public void log(
             AuditAction action,
             String entityType,
@@ -46,9 +47,7 @@ public class AuditService {
             Long companyId,
             Map<String, Object> payload
     ) {
-
         User user = userRepository.findById(userId).orElse(null);
-
         String username = user != null ? user.getUsername() : "UNKNOWN";
 
         AuditDetails details = AuditDetails.builder()

@@ -18,6 +18,8 @@ public class JwtService {
     private final String issuer;
     private final JWTVerifier verifier;
 
+    private static final long TOKEN_VALIDITY_MS = 1000L * 60 * 60 * 8; // 8 saat
+
     public JwtService(
             @Value("${kasadeneme3.jwt.secret-key}") String secret,
             @Value("${kasadeneme3.jwt.issuer}") String issuer
@@ -38,7 +40,7 @@ public class JwtService {
                 .withClaim("role", user.getRole().name())
                 .withClaim("permissions", permissions)
                 .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 30)) // 30 gün
+                .withExpiresAt(new Date(System.currentTimeMillis() + TOKEN_VALIDITY_MS))
                 .sign(algorithm);
     }
 

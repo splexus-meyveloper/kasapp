@@ -29,6 +29,10 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuditLogController {
 
+    private static final int MAX_PAGE_SIZE    = 50;
+    private static final int MAX_PAGE_NUMBER  = 1000;
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
     private final AuditLogRepository repo;
     private final AuditService service;
 
@@ -42,25 +46,19 @@ public class AuditLogController {
             @RequestParam(required = false) BigDecimal maxAmount,
             @RequestParam(required = false) String q,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime start,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime end,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
             Pageable pageable
     ) {
-
-        if (user == null) {
-            throw new RuntimeException("Unauthorized");
-        }
-
         Long companyId = user.getCompanyId();
 
         Specification<AuditLog> spec;
 
         if ("ADMIN".equals(user.getRole())) {
             spec = Specification
-                    .where(AuditLogSpecifications.usernameContains(username))
+                    .where(AuditLogSpecifications.companyIdEquals(companyId))
+                    .and(AuditLogSpecifications.usernameContains(username))
                     .and(AuditLogSpecifications.actionEquals(action))
                     .and(AuditLogSpecifications.amountGte(minAmount))
                     .and(AuditLogSpecifications.amountLte(maxAmount))
@@ -77,26 +75,17 @@ public class AuditLogController {
                     .and(AuditLogSpecifications.createdBetween(start, end));
         }
 
+        // Pagination güvenlik sınırları
+        int page = Math.min(Math.max(pageable.getPageNumber(), 0), MAX_PAGE_NUMBER);
+        int size = Math.min(
+                pageable.getPageSize() > 0 ? pageable.getPageSize() : DEFAULT_PAGE_SIZE,
+                MAX_PAGE_SIZE
+        );
 
-        int page = Math.max(pageable.getPageNumber(), 0);
-        int size = pageable.getPageSize();
-
-
-        if (size > 50) size = 50;
-
-        if (page > 1000) page = 1000;
-
-        Pageable safePageable =
-                PageRequest.of(
-                        page,
-                        size,
-                        Sort.by(Sort.Order.desc("createdAt"))
-                );
-
+        Pageable safePageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt")));
 
         Page<AuditLogResponse> pageResult =
-                repo.findAll(spec, safePageable)
-                        .map(AuditLogResponse::from);
+                repo.findAll(spec, safePageable).map(AuditLogResponse::from);
 
         return new PageResponse<>(
                 pageResult.getContent(),
@@ -108,16 +97,25 @@ public class AuditLogController {
     }
 
     @GetMapping("/my-actions")
-    public Page<AuditLog> getMyActions(
+    public PageResponse<AuditLogResponse> getMyActions(
             @AuthenticationPrincipal CustomUserDetails user,
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size
-    ){
+    ) {
+        // Kullanıcının kendi loglarını görürken de limit uygula
+        int safePage = Math.min(Math.max(page, 0), MAX_PAGE_NUMBER);
+        int safeSize = Math.min(size > 0 ? size : DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
 
-        return service.getUserLogs(
-                user.getUsername(),
-                page,
-                size
+        Page<AuditLog> result = service.getUserLogs(user.getUsername(), safePage, safeSize);
+
+        Page<AuditLogResponse> mapped = result.map(AuditLogResponse::from);
+
+        return new PageResponse<>(
+                mapped.getContent(),
+                mapped.getNumber(),
+                mapped.getSize(),
+                mapped.getTotalElements(),
+                mapped.getTotalPages()
         );
     }
 }
