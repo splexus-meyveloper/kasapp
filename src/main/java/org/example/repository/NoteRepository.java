@@ -38,4 +38,15 @@ public interface NoteRepository
         AND n.companyId=:companyId
     """)
     BigDecimal portfolioTotal(Long companyId);
+
+    // Vadesi yaklaşan senetler
+    @Query("""
+    SELECT n FROM Note n
+    WHERE n.companyId = :companyId
+      AND n.status = org.example.skills.enums.NoteStatus.PORTFOYDE
+      AND n.dueDate >= :today
+      AND n.dueDate <= :limitDate
+    ORDER BY n.dueDate ASC
+""")
+    List<Note> findUpcomingDue(Long companyId, LocalDate today, LocalDate limitDate);
 }

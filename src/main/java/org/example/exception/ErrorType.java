@@ -52,7 +52,16 @@ public enum ErrorType {
     CASH_TRANSACTION_NOT_FOUND(5001, "Kasa hareketi bulunamadı.", HttpStatus.NOT_FOUND),
     CHECK_NOT_FOUND(5002, "Çek bulunamadı.", HttpStatus.NOT_FOUND),
     NOTE_NOT_FOUND(5003, "Senet bulunamadı.", HttpStatus.NOT_FOUND),
-    ACCESS_DENIED(5004, "Bu kayıt üzerinde işlem yetkiniz yok.", HttpStatus.FORBIDDEN);
+    ACCESS_DENIED(5004, "Bu kayıt üzerinde işlem yetkiniz yok.", HttpStatus.FORBIDDEN),
+
+    // ── Kredi hataları ────────────────────────────────────────────────
+    LOAN_NOT_FOUND(9001, "Kredi bulunamadı.", HttpStatus.NOT_FOUND),
+    LOAN_ALREADY_CLOSED(9002, "Bu kredi zaten kapalı.", HttpStatus.BAD_REQUEST),
+    LOAN_ALL_INSTALLMENTS_PAID(9003, "Tüm taksitler zaten ödenmiş.", HttpStatus.BAD_REQUEST),
+    LOAN_INSTALLMENT_DATE_MISMATCH(9004, "Bitiş tarihi taksit sayısı ile uyumsuz.", HttpStatus.BAD_REQUEST),
+    LOAN_AMOUNT_INVALID(9005, "Kredi tutarı 0'dan büyük olmalıdır.", HttpStatus.BAD_REQUEST),
+    LOAN_INSTALLMENT_INVALID(9006, "Taksit sayısı geçersiz.", HttpStatus.BAD_REQUEST),
+    LOAN_END_DATE_INVALID(9007, "Bitiş tarihi geçmiş bir tarih olamaz.", HttpStatus.BAD_REQUEST);
 
     int code;
     String message;

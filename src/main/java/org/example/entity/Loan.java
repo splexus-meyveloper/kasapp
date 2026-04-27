@@ -27,9 +27,19 @@ public class Loan {
     @Enumerated(EnumType.STRING)
     private Banka bankName;
 
+    // Çekilen anapara tutarı
     @Column(nullable = false)
     private BigDecimal loanAmount;
 
+    // Faiz oranı (% olarak, örn: 2.5 → %2.5 aylık)
+    @Column(precision = 5, scale = 2)
+    private BigDecimal interestRate;
+
+    // Toplam geri ödenecek tutar (anapara + faiz)
+    @Column(nullable = false)
+    private BigDecimal totalPayable;
+
+    // Kalan borç
     @Column(nullable = false)
     private BigDecimal remainingDebt;
 
@@ -39,16 +49,14 @@ public class Loan {
     @Column(nullable = false)
     private Integer paidInstallments;
 
+    // Aylık taksit tutarı (faizli)
     @Column(nullable = false)
     private BigDecimal monthlyPayment;
 
     private LocalDate startDate;
-
     private LocalDate endDate;
 
     private boolean active = true;
-
     private LocalDateTime createdAt;
-
     private Integer paymentDay;
 }

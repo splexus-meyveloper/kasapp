@@ -4,15 +4,16 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
 import org.example.dto.request.LoanCreateRequest;
-import org.example.entity.CashTransaction;
 import org.example.entity.Loan;
-import org.example.repository.CashTransactionRepository;
+import org.example.exception.ErrorType;
+import org.example.exception.KasappException;
 import org.example.repository.LoanRepository;
-import org.example.skills.enums.Banka;
-import org.example.skills.enums.TransactionType;
-import org.springframework.stereotype.Service;
 import org.example.skills.enums.AuditAction;
+import org.springframework.stereotype.Service;
+
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -23,64 +24,47 @@ import java.util.List;
 public class LoanService {
 
     private final LoanRepository repository;
-    private final CashService cashService;
     private final RealtimeEventService realtimeEventService;
-
+    // ✅ cashService YOK — kasaya hiç dokunmuyoruz
 
     @Audit(action = AuditAction.LOAN_CREATE)
     @Transactional
-    public Loan createLoan(BigDecimal loanAmount,
-                           LocalDate endDate,
-                           Banka bankName,
-                           Integer installmentCount,
-                           BigDecimal monthlyPayment,
-                           Integer paymentDay,
-                           Long companyId) {
+    public Loan createLoan(LoanCreateRequest req, Long companyId) {
+
+        validate(req);
 
         LocalDate startDate = LocalDate.now();
+        long months = ChronoUnit.MONTHS.between(startDate, req.endDate());
 
-
-        BigDecimal totalInstallment =
-                monthlyPayment.multiply(
-                        BigDecimal.valueOf(installmentCount)
-                );
-
-        if(totalInstallment.compareTo(loanAmount) != 0){
-            throw new RuntimeException(
-                    "Taksit sayısı × aylık ödeme kredi tutarına eşit olmalıdır"
-            );
+        if (months != req.installmentCount()) {
+            throw new KasappException(ErrorType.LOAN_INSTALLMENT_DATE_MISMATCH);
         }
 
-        // 2️⃣ ay kontrolü
-        long months =
-                ChronoUnit.MONTHS.between(startDate, endDate);
+        BigDecimal interestRate = req.interestRate() != null
+                ? req.interestRate()
+                : BigDecimal.ZERO;
 
-        if(loanAmount.compareTo(BigDecimal.ZERO) <= 0)
-            throw new RuntimeException("Kredi tutarı 0'dan büyük olmalıdır");
+        BigDecimal monthlyPayment = calculateMonthlyPayment(
+                req.loanAmount(), interestRate, req.installmentCount()
+        );
 
-        if(monthlyPayment.compareTo(BigDecimal.ZERO) <= 0)
-            throw new RuntimeException("Aylık ödeme 0'dan büyük olmalıdır");
-
-        if(installmentCount <= 0)
-            throw new RuntimeException("Taksit sayısı 0'dan büyük olmalıdır");
-
-        if(months != installmentCount){
-            throw new RuntimeException(
-                    "Bitiş tarihi taksit sayısı ile uyumsuz"
-            );
-        }
+        BigDecimal totalPayable = monthlyPayment
+                .multiply(BigDecimal.valueOf(req.installmentCount()))
+                .setScale(2, RoundingMode.HALF_UP);
 
         Loan loan = Loan.builder()
                 .companyId(companyId)
-                .bankName(bankName)
-                .loanAmount(loanAmount)
-                .remainingDebt(loanAmount)
-                .installmentCount(installmentCount)
+                .bankName(req.bankName())
+                .loanAmount(req.loanAmount())
+                .interestRate(interestRate)
+                .totalPayable(totalPayable)
+                .remainingDebt(totalPayable)
+                .installmentCount(req.installmentCount())
                 .paidInstallments(0)
                 .monthlyPayment(monthlyPayment)
-                .paymentDay(paymentDay)
+                .paymentDay(req.paymentDay())
                 .startDate(startDate)
-                .endDate(endDate)
+                .endDate(req.endDate())
                 .active(true)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -90,59 +74,67 @@ public class LoanService {
         return saved;
     }
 
-
-    public List<Loan> getActiveLoans(Long companyId){
-        return repository.findByCompanyIdAndActiveTrue(companyId);
-    }
-
-
     @Transactional
-    public Loan payInstallment(Long loanId,
-                               Long userId,
-                               Long companyId){
+    public Loan payInstallment(Long loanId, Long userId, Long companyId) {
 
         Loan loan = repository.findById(loanId)
-                .orElseThrow();
+                .orElseThrow(() -> new KasappException(ErrorType.LOAN_NOT_FOUND));
 
-        if(!loan.getCompanyId().equals(companyId))
-            throw new RuntimeException("Bu krediye erişim yetkiniz yok");
+        if (!loan.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.ACCESS_DENIED);
 
-        if(!loan.isActive())
-            throw new RuntimeException("Kredi kapalı");
+        if (!loan.isActive())
+            throw new KasappException(ErrorType.LOAN_ALREADY_CLOSED);
 
-        if(loan.getPaidInstallments() >= loan.getInstallmentCount())
-            throw new RuntimeException("Tüm taksitler ödenmiş");
+        if (loan.getPaidInstallments() >= loan.getInstallmentCount())
+            throw new KasappException(ErrorType.LOAN_ALL_INSTALLMENTS_PAID);
 
         BigDecimal payment = loan.getMonthlyPayment();
 
-
-        loan.setPaidInstallments(
-                loan.getPaidInstallments()+1
-        );
-
+        loan.setPaidInstallments(loan.getPaidInstallments() + 1);
         loan.setRemainingDebt(
-                loan.getRemainingDebt().subtract(payment)
+                loan.getRemainingDebt().subtract(payment).max(BigDecimal.ZERO)
         );
 
-
-        if(loan.getPaidInstallments() >= loan.getInstallmentCount()){
+        if (loan.getPaidInstallments() >= loan.getInstallmentCount()) {
             loan.setActive(false);
         }
 
         repository.save(loan);
 
-
-        cashService.addExpense(
-                payment,
-                loan.getBankName()+" kredi taksiti ("+
-                        loan.getPaidInstallments()+"/"+
-                        loan.getInstallmentCount()+")",
-                userId,
-                companyId
-        );
+        // ✅ cashService.addExpense ÇAĞRISI YOK — kasa etkilenmez
 
         realtimeEventService.publish("KREDI", "LOAN_INSTALLMENT", companyId, loan.getId());
         return loan;
     }
 
+    public List<Loan> getActiveLoans(Long companyId) {
+        return repository.findByCompanyIdAndActiveTrue(companyId);
+    }
+
+    private BigDecimal calculateMonthlyPayment(BigDecimal principal,
+                                               BigDecimal rate,
+                                               int installmentCount) {
+        if (rate.compareTo(BigDecimal.ZERO) == 0) {
+            return principal.divide(
+                    BigDecimal.valueOf(installmentCount), 2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal r = rate.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+        BigDecimal onePlusR = BigDecimal.ONE.add(r);
+        BigDecimal pow = onePlusR.pow(installmentCount, new MathContext(10));
+        BigDecimal numerator = principal.multiply(r).multiply(pow);
+        BigDecimal denominator = pow.subtract(BigDecimal.ONE);
+
+        return numerator.divide(denominator, 2, RoundingMode.HALF_UP);
+    }
+
+    private void validate(LoanCreateRequest req) {
+        if (req.loanAmount().compareTo(BigDecimal.ZERO) <= 0)
+            throw new KasappException(ErrorType.LOAN_AMOUNT_INVALID);
+        if (req.installmentCount() <= 0)
+            throw new KasappException(ErrorType.LOAN_INSTALLMENT_INVALID);
+        if (req.endDate().isBefore(LocalDate.now()))
+            throw new KasappException(ErrorType.LOAN_END_DATE_INVALID);
+    }
 }

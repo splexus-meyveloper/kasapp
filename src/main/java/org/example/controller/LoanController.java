@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.LoanCreateRequest;
 import org.example.entity.Loan;
@@ -18,37 +19,19 @@ public class LoanController {
     private final LoanService service;
 
     @PostMapping
-    public Loan createLoan(@RequestBody LoanCreateRequest request,
-                           @AuthenticationPrincipal CustomUserDetails user){
-
-        return service.createLoan(
-                request.loanAmount(),
-                request.endDate(),
-                request.bankName(),
-                request.installmentCount(),
-                request.monthlyPayment(),
-                request.paymentDay(),
-                user.getCompanyId()
-        );
+    public Loan createLoan(@Valid @RequestBody LoanCreateRequest request,
+                           @AuthenticationPrincipal CustomUserDetails user) {
+        return service.createLoan(request, user.getCompanyId());
     }
 
-
     @GetMapping
-    public List<Loan> getLoans(@AuthenticationPrincipal CustomUserDetails user){
+    public List<Loan> getLoans(@AuthenticationPrincipal CustomUserDetails user) {
         return service.getActiveLoans(user.getCompanyId());
     }
 
-
     @PostMapping("/{loanId}/pay")
     public Loan payInstallment(@PathVariable Long loanId,
-                               @AuthenticationPrincipal CustomUserDetails user){
-
-        return service.payInstallment(
-                loanId,
-                user.getId(),
-                user.getCompanyId()
-        );
+                               @AuthenticationPrincipal CustomUserDetails user) {
+        return service.payInstallment(loanId, user.getId(), user.getCompanyId());
     }
 }
-
-
