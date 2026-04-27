@@ -10,6 +10,7 @@ import org.example.repository.AuditLogRepository;
 import org.example.repository.ChangeRequestRepository;
 import org.example.repository.CheckRepository;
 import org.example.repository.NoteRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MyActivityService {
 
+    private static final int MAX_AUDIT_RECORDS          = 100;
+    private static final int MAX_CHANGE_REQUEST_RECORDS = 50;
+
     private final AuditLogRepository auditRepo;
     private final ChangeRequestRepository changeRepo;
     private final CheckRepository checkRepository;
@@ -30,11 +34,15 @@ public class MyActivityService {
 
         List<MyActivityDto> result = new ArrayList<>();
 
-        List<AuditLog> audits =
-                auditRepo.findByCompanyIdAndUserIdOrderByCreatedAtDesc(companyId, userId);
+        // ✅ Limiti olan sorgu — artık tüm tabloyu çekmez
+        List<AuditLog> audits = auditRepo
+                .findByCompanyIdAndUserIdOrderByCreatedAtDesc(
+                        companyId, userId,
+                        PageRequest.of(0, MAX_AUDIT_RECORDS)
+                )
+                .getContent();
 
         for (AuditLog log : audits) {
-
             MyActivityDto.MyActivityDtoBuilder builder = MyActivityDto.builder()
                     .source("AUDIT")
                     .action(log.getAction())
@@ -48,15 +56,18 @@ public class MyActivityService {
                     .entityType(log.getEntityType());
 
             enrichEntityFields(builder, log.getEntityType(), log.getEntityId(), companyId);
-
             result.add(builder.build());
         }
 
-        List<ChangeRequest> requests =
-                changeRepo.findByCompanyIdAndRequestedByOrderByRequestedAtDesc(companyId, userId);
+        // ✅ Limiti olan sorgu
+        List<ChangeRequest> requests = changeRepo
+                .findByCompanyIdAndRequestedByOrderByRequestedAtDesc(
+                        companyId, userId,
+                        PageRequest.of(0, MAX_CHANGE_REQUEST_RECORDS)
+                )
+                .getContent();
 
         for (ChangeRequest req : requests) {
-
             MyActivityDto.MyActivityDtoBuilder builder = MyActivityDto.builder()
                     .source("CHANGE_REQUEST")
                     .action("CASH_UPDATE_REQUEST")
@@ -70,7 +81,6 @@ public class MyActivityService {
                     .entityType(req.getEntityType());
 
             enrichEntityFields(builder, req.getEntityType(), req.getEntityId(), companyId);
-
             result.add(builder.build());
         }
 
@@ -79,20 +89,13 @@ public class MyActivityService {
     }
 
     private void enrichEntityFields(MyActivityDto.MyActivityDtoBuilder builder,
-                                    String entityType,
-                                    Long entityId,
-                                    Long companyId) {
-
-        if (entityId == null || entityType == null) {
-            return;
-        }
+                                    String entityType, Long entityId, Long companyId) {
+        if (entityId == null || entityType == null) return;
 
         if ("CHECK".equalsIgnoreCase(entityType)) {
             Check check = checkRepository.findByIdAndCompanyId(entityId, companyId).orElse(null);
-
             if (check != null) {
-                builder
-                        .checkNo(check.getCheckNo())
+                builder.checkNo(check.getCheckNo())
                         .bank(check.getBank() != null ? check.getBank().name() : null)
                         .dueDate(check.getDueDate());
             }
@@ -101,36 +104,34 @@ public class MyActivityService {
 
         if ("NOTE".equalsIgnoreCase(entityType)) {
             Note note = noteRepository.findByIdAndCompanyId(entityId, companyId).orElse(null);
-
             if (note != null) {
-                builder
-                        .noteNo(note.getNoteNo())
+                builder.noteNo(note.getNoteNo())
                         .dueDate(note.getDueDate())
-                        .debtor(null); // NOTE entity'de debtor alanı yok
+                        .debtor(null);
             }
         }
     }
 
     private String mapAction(String action) {
         return switch (action) {
-            case "CASH_INCOME" -> "Kasa Giriş";
-            case "CASH_EXPENSE" -> "Kasa Çıkış";
-            case "CHECK_IN" -> "Çek Giriş";
-            case "CHECK_COLLECT" -> "Çek Tahsil";
-            case "CHECK_OUT" -> "Çek Ödeme";
-            case "NOTE_IN" -> "Senet Giriş";
-            case "NOTE_COLLECT" -> "Senet Tahsil";
-            case "LOAN_CREATE" -> "Kredi Oluşturma";
-            case "LOAN_INSTALLMENT" -> "Kredi Taksit";
-            case "EXPENSE_ADD" -> "Masraf";
-            default -> action;
+            case "CASH_INCOME"       -> "Kasa Giriş";
+            case "CASH_EXPENSE"      -> "Kasa Çıkış";
+            case "CHECK_IN"          -> "Çek Giriş";
+            case "CHECK_COLLECT"     -> "Çek Tahsil";
+            case "CHECK_OUT"         -> "Çek Ödeme";
+            case "NOTE_IN"           -> "Senet Giriş";
+            case "NOTE_COLLECT"      -> "Senet Tahsil";
+            case "LOAN_CREATE"       -> "Kredi Oluşturma";
+            case "LOAN_INSTALLMENT"  -> "Kredi Taksit";
+            case "EXPENSE_ADD"       -> "Masraf";
+            default                  -> action;
         };
     }
 
     private String resolveDirection(String action) {
-        if (action == null) return "NONE";
-        if (action.contains("INCOME") || action.contains("IN")) return "IN";
-        if (action.contains("EXPENSE") || action.contains("OUT")) return "OUT";
+        if (action == null)                                          return "NONE";
+        if (action.contains("INCOME") || action.contains("IN"))     return "IN";
+        if (action.contains("EXPENSE") || action.contains("OUT"))   return "OUT";
         return "NONE";
     }
 }

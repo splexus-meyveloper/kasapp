@@ -9,7 +9,6 @@ import org.example.entity.Note;
 import org.example.security.CustomUserDetails;
 import org.example.service.NoteService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,44 +23,27 @@ public class NoteController {
     @PostMapping("/in")
     public void noteIn(
             @Valid @RequestBody NoteEntryRequest req,
-            @AuthenticationPrincipal CustomUserDetails user){
-
+            @AuthenticationPrincipal CustomUserDetails user) {
         service.noteIn(req, user.getId(), user.getCompanyId());
     }
 
     @PostMapping("/collect")
-    public Note collect(@RequestBody NoteExitRequest req,
-                        @AuthenticationPrincipal CustomUserDetails user){
-
-        return service.collect(
-                req,
-                user.getId(),
-                user.getCompanyId()
-        );
+    public Note collect(
+            @RequestBody NoteExitRequest req,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return service.collect(req, user.getId(), user.getCompanyId());
     }
 
     @PostMapping("/endorse")
-    public Note endorse(@RequestBody NoteExitRequest req,
-                        @AuthenticationPrincipal CustomUserDetails user){
-
-        return service.endorse(
-                req,
-                user.getId(),
-                user.getCompanyId()
-        );
+    public Note endorse(
+            @RequestBody NoteExitRequest req,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return service.endorse(req, user.getId(), user.getCompanyId());
     }
 
     @GetMapping("/portfolio")
-    public List<NoteListResponse> portfolio(){
-
-        CustomUserDetails user =
-                (CustomUserDetails) SecurityContextHolder
-                        .getContext()
-                        .getAuthentication()
-                        .getPrincipal();
-
-        return service.getPortfolioNotes(
-                user.getCompanyId()
-        );
+    public List<NoteListResponse> portfolio(
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return service.getPortfolioNotes(user.getCompanyId());
     }
 }

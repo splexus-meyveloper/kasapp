@@ -2,31 +2,36 @@ package org.example.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.dto.request.CashUpdateRequestDto;
 import org.example.dto.request.CheckUpdateRequestDto;
 import org.example.dto.request.NoteUpdateRequestDto;
 import org.example.dto.response.ChangeRequestResponseDto;
 import org.example.entity.CashTransaction;
 import org.example.entity.ChangeRequest;
-import org.example.entity.User;
+import org.example.entity.Note;
+import org.example.entity.Check;
+import org.example.exception.ErrorType;
+import org.example.exception.KasappException;
 import org.example.repository.CashTransactionRepository;
 import org.example.repository.ChangeRequestRepository;
+import org.example.repository.CheckRepository;
+import org.example.repository.NoteRepository;
 import org.example.repository.UserRepository;
 import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.ChangeRequestAction;
 import org.example.skills.enums.ChangeRequestStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.example.entity.Check;
-import org.example.entity.Note;
-import org.example.repository.CheckRepository;
-import org.example.repository.NoteRepository;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChangeRequestService {
@@ -39,427 +44,283 @@ public class ChangeRequestService {
     private final ObjectMapper objectMapper;
     private final AuditService auditService;
 
+    // ── CASH güncelleme talebi ────────────────────────────────────────────
     @Transactional
-    public void createCashUpdateRequest(Long cashId,
-                                        CashUpdateRequestDto dto,
-                                        Long userId,
-                                        Long companyId) {
-        try {
-            CashTransaction existing = cashTransactionRepository.findById(cashId)
-                    .orElseThrow(() -> new RuntimeException("Kasa hareketi bulunamadı"));
+    public void createCashUpdateRequest(Long cashId, CashUpdateRequestDto dto,
+                                        Long userId, Long companyId) {
+        CashTransaction existing = cashTransactionRepository.findById(cashId)
+                .orElseThrow(() -> new KasappException(ErrorType.CASH_TRANSACTION_NOT_FOUND));
 
-            if (!existing.getCompanyId().equals(companyId)) {
-                throw new RuntimeException("Bu kayıt üzerinde işlem yetkiniz yok");
-            }
+        if (!existing.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.ACCESS_DENIED);
 
-            String oldDataJson = objectMapper.writeValueAsString(existing);
+        ChangeRequest request = buildAndSaveRequest(
+                "CASH", existing.getId(), companyId, userId,
+                existing, new CashUpdateRequestDto(dto.amount(), dto.description())
+        );
 
-            CashUpdateRequestDto newData = new CashUpdateRequestDto(
-                    dto.amount(),
-                    dto.description()
-            );
-
-            String newDataJson = objectMapper.writeValueAsString(newData);
-
-            ChangeRequest request = ChangeRequest.builder()
-                    .companyId(companyId)
-                    .entityType("CASH")
-                    .entityId(existing.getId())
-                    .actionType(ChangeRequestAction.UPDATE)
-                    .oldData(oldDataJson)
-                    .newData(newDataJson)
-                    .requestedBy(userId)
-                    .requestedAt(LocalDateTime.now())
-                    .status(ChangeRequestStatus.PENDING)
-                    .build();
-
-            request = changeRequestRepository.save(request);
-
-            // 🔥 FIX: HashMap + null kontrolü
-            Map<String, Object> payload = new HashMap<>();
-
-            payload.put("requestId", request.getId());
-            payload.put("entityType", request.getEntityType());
-            payload.put("entityId", request.getEntityId());
-
-            if (request.getOldData() != null) {
-                payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
-            }
-            if (request.getNewData() != null) {
-                payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
-            }
-
-            auditService.log(
-                    AuditAction.CASH_UPDATE_REQUEST_CREATED,
-                    "CASH",
-                    existing.getId(),
-                    userId,
-                    companyId,
-                    payload
-            );
-
-        } catch (Exception e) {
-            throw new RuntimeException("Kasa güncelleme talebi oluşturulurken hata oluştu", e);
-        }
+        logAudit(AuditAction.CASH_UPDATE_REQUEST_CREATED, "CASH",
+                existing.getId(), userId, companyId, request);
     }
 
+    // ── CHECK güncelleme talebi ───────────────────────────────────────────
+    @Transactional
+    public void createCheckUpdateRequest(Long checkId, CheckUpdateRequestDto dto,
+                                         Long userId, Long companyId) {
+        Check existing = checkRepository.findById(checkId)
+                .orElseThrow(() -> new KasappException(ErrorType.CHECK_NOT_FOUND));
+
+        if (!existing.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.ACCESS_DENIED);
+
+        ChangeRequest request = buildAndSaveRequest(
+                "CHECK", existing.getId(), companyId, userId,
+                existing, new CheckUpdateRequestDto(dto.checkNo(), dto.amount(),
+                        dto.description(), dto.bank(), dto.dueDate())
+        );
+
+        logAudit(AuditAction.CHECK_UPDATE_REQUEST_CREATED, "CHECK",
+                existing.getId(), userId, companyId, request);
+    }
+
+    // ── NOTE güncelleme talebi ────────────────────────────────────────────
+    @Transactional
+    public void createNoteUpdateRequest(Long noteId, NoteUpdateRequestDto dto,
+                                        Long userId, Long companyId) {
+        Note existing = noteRepository.findById(noteId)
+                .orElseThrow(() -> new KasappException(ErrorType.NOTE_NOT_FOUND));
+
+        if (!existing.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.ACCESS_DENIED);
+
+        ChangeRequest request = buildAndSaveRequest(
+                "NOTE", existing.getId(), companyId, userId,
+                existing, new NoteUpdateRequestDto(dto.amount(), dto.description(), dto.dueDate())
+        );
+
+        logAudit(AuditAction.NOTE_UPDATE_REQUEST_CREATED, "NOTE",
+                existing.getId(), userId, companyId, request);
+    }
+
+    // ── Bekleyen talepler — N+1 düzeltildi ───────────────────────────────
     @Transactional(readOnly = true)
     public List<ChangeRequestResponseDto> getPendingRequests(Long companyId) {
-        return changeRequestRepository
-                .findByCompanyIdAndStatusOrderByRequestedAtDesc(
-                        companyId,
-                        ChangeRequestStatus.PENDING
-                )
-                .stream()
-                .map(req -> {
-                    String username = userRepository.findById(req.getRequestedBy())
-                            .map(User::getUsername)
-                            .orElse("Bilinmiyor");
 
-                    return new ChangeRequestResponseDto(
-                            req.getId(),
-                            req.getEntityType(),
-                            req.getEntityId(),
-                            req.getActionType(),
-                            req.getOldData(),
-                            req.getNewData(),
-                            req.getRequestedBy(),
-                            username,
-                            req.getRequestedAt(),
-                            req.getStatus(),
-                            req.getApprovedBy(),
-                            req.getApprovedAt()
-                    );
-                })
+        List<ChangeRequest> requests = changeRequestRepository
+                .findByCompanyIdAndStatusOrderByRequestedAtDesc(companyId, ChangeRequestStatus.PENDING);
+
+        if (requests.isEmpty()) return List.of();
+
+        // ✅ Tek sorguda tüm kullanıcı adlarını çek — N+1 yok
+        Set<Long> userIds = requests.stream()
+                .map(ChangeRequest::getRequestedBy)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> usernameMap = userRepository.findUsernamesByIds(userIds);
+
+        return requests.stream()
+                .map(req -> new ChangeRequestResponseDto(
+                        req.getId(),
+                        req.getEntityType(),
+                        req.getEntityId(),
+                        req.getActionType(),
+                        req.getOldData(),
+                        req.getNewData(),
+                        req.getRequestedBy(),
+                        usernameMap.getOrDefault(req.getRequestedBy(), "Bilinmiyor"),
+                        req.getRequestedAt(),
+                        req.getStatus(),
+                        req.getApprovedBy(),
+                        req.getApprovedAt()
+                ))
                 .toList();
     }
 
+    // ── Onay ─────────────────────────────────────────────────────────────
     @Transactional
     public void approveRequest(Long requestId, Long adminId, Long companyId) {
-        try {
-            ChangeRequest request = changeRequestRepository.findById(requestId)
-                    .orElseThrow(() -> new RuntimeException("Onay kaydı bulunamadı"));
 
-            if (request.getStatus() != ChangeRequestStatus.PENDING) {
-                throw new RuntimeException("Bu talep zaten işlenmiş");
-            }
+        ChangeRequest request = changeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
 
-            if (!request.getCompanyId().equals(companyId)) {
-                throw new RuntimeException("Bu talep üzerinde işlem yetkiniz yok");
-            }
+        if (request.getStatus() != ChangeRequestStatus.PENDING)
+            throw new KasappException(ErrorType.CHANGE_REQUEST_ALREADY_PROCESSED);
 
-            if ("CASH".equals(request.getEntityType())
-                    && request.getActionType() == ChangeRequestAction.UPDATE) {
+        if (!request.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.CHANGE_REQUEST_ACCESS_DENIED);
 
-                CashTransaction existing = cashTransactionRepository.findById(request.getEntityId())
-                        .orElseThrow(() -> new RuntimeException("Kasa hareketi bulunamadı"));
+        applyChange(request, companyId);
 
-                if (!existing.getCompanyId().equals(companyId)) {
-                    throw new RuntimeException("Bu kayıt üzerinde işlem yetkiniz yok");
-                }
+        request.setStatus(ChangeRequestStatus.APPROVED);
+        request.setApprovedBy(adminId);
+        request.setApprovedAt(LocalDateTime.now());
+        changeRequestRepository.save(request);
 
-                CashUpdateRequestDto newData = objectMapper.readValue(
-                        request.getNewData(),
-                        CashUpdateRequestDto.class
-                );
-
-                existing.setAmount(newData.amount());
-                existing.setDescription(newData.description());
-
-                cashTransactionRepository.save(existing);
-            }
-
-            if ("CHECK".equals(request.getEntityType())
-                    && request.getActionType() == ChangeRequestAction.UPDATE) {
-
-                Check existing = checkRepository.findById(request.getEntityId())
-                        .orElseThrow(() -> new RuntimeException("Çek bulunamadı"));
-
-                if (!existing.getCompanyId().equals(companyId)) {
-                    throw new RuntimeException("Bu kayıt üzerinde işlem yetkiniz yok");
-                }
-
-                CheckUpdateRequestDto newData = objectMapper.readValue(
-                        request.getNewData(),
-                        CheckUpdateRequestDto.class
-                );
-
-                existing.setAmount(newData.amount());
-                existing.setDescription(newData.description());
-                existing.setDueDate(newData.dueDate());
-
-                if (newData.checkNo() != null && !newData.checkNo().isBlank()) {
-
-                    boolean exists = checkRepository.existsByCheckNoAndCompanyId(
-                            newData.checkNo(),
-                            companyId
-                    );
-
-                    if (exists && !existing.getCheckNo().equals(newData.checkNo())) {
-                        throw new RuntimeException("Bu çek numarası zaten kullanılıyor");
-                    }
-
-                    existing.setCheckNo(newData.checkNo());
-                }
-
-                if (newData.bank() != null && !newData.bank().isBlank()) {
-                    try {
-                        existing.setBank(org.example.skills.enums.Banka.valueOf(newData.bank().toUpperCase()));
-                    } catch (Exception e) {
-                        throw new RuntimeException("Geçersiz banka değeri: " + newData.bank());
-                    }
-                }
-
-                checkRepository.save(existing);
-            }
-
-            if ("NOTE".equals(request.getEntityType())
-                    && request.getActionType() == ChangeRequestAction.UPDATE) {
-
-                Note existing = noteRepository.findById(request.getEntityId())
-                        .orElseThrow(() -> new RuntimeException("Senet bulunamadı"));
-
-                if (!existing.getCompanyId().equals(companyId)) {
-                    throw new RuntimeException("Bu kayıt üzerinde işlem yetkiniz yok");
-                }
-
-                NoteUpdateRequestDto newData = objectMapper.readValue(
-                        request.getNewData(),
-                        NoteUpdateRequestDto.class
-                );
-
-                if (newData.amount() != null) {
-                    existing.setAmount(newData.amount());
-                }
-                if (newData.description() != null) {
-                    existing.setDescription(newData.description());
-                }
-                existing.setDueDate(newData.dueDate());
-
-                noteRepository.save(existing);
-            }
-
-            request.setStatus(ChangeRequestStatus.APPROVED);
-            request.setApprovedBy(adminId);
-            request.setApprovedAt(LocalDateTime.now());
-
-            request = changeRequestRepository.save(request);
-
-            AuditAction approveAction = switch (request.getEntityType()) {
-                case "CASH" -> AuditAction.CASH_UPDATE_REQUEST_APPROVED;
-                case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_APPROVED;
-                case "NOTE" -> AuditAction.NOTE_UPDATE_REQUEST_APPROVED;
-                default -> throw new RuntimeException("Desteklenmeyen entity type: " + request.getEntityType());
-            };
-
-            // 🔥 FIX
-            Map<String, Object> payload = new HashMap<>();
-
-            payload.put("requestId", request.getId());
-            payload.put("entityType", request.getEntityType());
-            payload.put("entityId", request.getEntityId());
-            payload.put("approvedBy", adminId);
-            payload.put("approvedAt", request.getApprovedAt().toString());
-
-            if (request.getOldData() != null) {
-                payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
-            }
-            if (request.getNewData() != null) {
-                payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
-            }
-
-            auditService.log(
-                    approveAction,
-                    request.getEntityType(),
-                    request.getEntityId(),
-                    adminId,
-                    request.getCompanyId(),
-                    payload
-            );
-
-        } catch (Exception e) {
-            throw new RuntimeException("Talep onaylanırken hata oluştu", e);
-        }
+        AuditAction action = resolveApproveAction(request.getEntityType());
+        logAudit(action, request.getEntityType(), request.getEntityId(),
+                adminId, companyId, request);
     }
 
+    // ── Red ───────────────────────────────────────────────────────────────
     @Transactional
     public void rejectRequest(Long requestId, Long adminId) {
-        try {
-            ChangeRequest request = changeRequestRepository.findById(requestId)
-                    .orElseThrow(() -> new RuntimeException("Onay kaydı bulunamadı"));
 
-            if (request.getStatus() != ChangeRequestStatus.PENDING) {
-                throw new RuntimeException("Bu talep zaten işlenmiş");
-            }
+        ChangeRequest request = changeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
 
-            request.setStatus(ChangeRequestStatus.REJECTED);
-            request.setApprovedBy(adminId);
-            request.setApprovedAt(LocalDateTime.now());
+        if (request.getStatus() != ChangeRequestStatus.PENDING)
+            throw new KasappException(ErrorType.CHANGE_REQUEST_ALREADY_PROCESSED);
 
-            request = changeRequestRepository.save(request);
+        request.setStatus(ChangeRequestStatus.REJECTED);
+        request.setApprovedBy(adminId);
+        request.setApprovedAt(LocalDateTime.now());
+        changeRequestRepository.save(request);
 
-            AuditAction rejectAction = switch (request.getEntityType()) {
-                case "CASH" -> AuditAction.CASH_UPDATE_REQUEST_REJECTED;
-                case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_REJECTED;
-                case "NOTE" -> AuditAction.NOTE_UPDATE_REQUEST_REJECTED;
-                default -> throw new RuntimeException("Desteklenmeyen entity type: " + request.getEntityType());
-            };
-
-            // 🔥 FIX
-            Map<String, Object> payload = new HashMap<>();
-
-            payload.put("requestId", request.getId());
-            payload.put("entityType", request.getEntityType());
-            payload.put("entityId", request.getEntityId());
-            payload.put("rejectedBy", adminId);
-            payload.put("rejectedAt", request.getApprovedAt().toString());
-
-            if (request.getOldData() != null) {
-                payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
-            }
-            if (request.getNewData() != null) {
-                payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
-            }
-
-            auditService.log(
-                    rejectAction,
-                    request.getEntityType(),
-                    request.getEntityId(),
-                    adminId,
-                    request.getCompanyId(),
-                    payload
-            );
-
-        } catch (Exception e) {
-            throw new RuntimeException("Talep reddedilirken hata oluştu", e);
-        }
+        AuditAction action = resolveRejectAction(request.getEntityType());
+        logAudit(action, request.getEntityType(), request.getEntityId(),
+                adminId, request.getCompanyId(), request);
     }
 
-    @Transactional
-    public void createCheckUpdateRequest(Long checkId,
-                                         CheckUpdateRequestDto dto,
-                                         Long userId,
-                                         Long companyId) {
+    // ── Yardımcılar ───────────────────────────────────────────────────────
+
+    private ChangeRequest buildAndSaveRequest(String entityType, Long entityId,
+                                              Long companyId, Long userId,
+                                              Object oldObj, Object newObj) {
         try {
-            Check existing = checkRepository.findById(checkId)
-                    .orElseThrow(() -> new RuntimeException("Çek bulunamadı"));
-
-            if (!existing.getCompanyId().equals(companyId)) {
-                throw new RuntimeException("Bu kayıt üzerinde işlem yetkiniz yok");
-            }
-
-            String oldDataJson = objectMapper.writeValueAsString(existing);
-
-            CheckUpdateRequestDto newData = new CheckUpdateRequestDto(
-                    dto.checkNo(),
-                    dto.amount(),
-                    dto.description(),
-                    dto.bank(),
-                    dto.dueDate()
-            );
-
-            String newDataJson = objectMapper.writeValueAsString(newData);
+            String oldJson = objectMapper.writeValueAsString(oldObj);
+            String newJson = objectMapper.writeValueAsString(newObj);
 
             ChangeRequest request = ChangeRequest.builder()
                     .companyId(companyId)
-                    .entityType("CHECK")
-                    .entityId(existing.getId())
+                    .entityType(entityType)
+                    .entityId(entityId)
                     .actionType(ChangeRequestAction.UPDATE)
-                    .oldData(oldDataJson)
-                    .newData(newDataJson)
+                    .oldData(oldJson)
+                    .newData(newJson)
                     .requestedBy(userId)
                     .requestedAt(LocalDateTime.now())
                     .status(ChangeRequestStatus.PENDING)
                     .build();
 
-            request = changeRequestRepository.save(request);
-
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("requestId", request.getId());
-            payload.put("entityType", request.getEntityType());
-            payload.put("entityId", request.getEntityId());
-
-            if (request.getOldData() != null) {
-                payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
-            }
-            if (request.getNewData() != null) {
-                payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
-            }
-
-            auditService.log(
-                    AuditAction.CHECK_UPDATE_REQUEST_CREATED,
-                    "CHECK",
-                    existing.getId(),
-                    userId,
-                    companyId,
-                    payload
-            );
+            return changeRequestRepository.save(request);
 
         } catch (Exception e) {
-            throw new RuntimeException("Çek güncelleme talebi oluşturulurken hata oluştu", e);
+            log.error("ChangeRequest oluşturulurken JSON hatası. entityType={}, entityId={}",
+                    entityType, entityId, e);
+            throw new KasappException(ErrorType.CHANGE_REQUEST_CREATE_FAILED);
         }
     }
 
-    @Transactional
-    public void createNoteUpdateRequest(Long noteId,
-                                        NoteUpdateRequestDto dto,
-                                        Long userId,
-                                        Long companyId) {
+    private void applyChange(ChangeRequest request, Long companyId) {
         try {
-            Note existing = noteRepository.findById(noteId)
-                    .orElseThrow(() -> new RuntimeException("Senet bulunamadı"));
+            switch (request.getEntityType()) {
+                case "CASH" -> {
+                    CashTransaction existing = cashTransactionRepository
+                            .findById(request.getEntityId())
+                            .orElseThrow(() -> new KasappException(ErrorType.CASH_TRANSACTION_NOT_FOUND));
 
-            if (!existing.getCompanyId().equals(companyId)) {
-                throw new RuntimeException("Bu kayıt üzerinde işlem yetkiniz yok");
+                    if (!existing.getCompanyId().equals(companyId))
+                        throw new KasappException(ErrorType.ACCESS_DENIED);
+
+                    CashUpdateRequestDto newData = objectMapper.readValue(
+                            request.getNewData(), CashUpdateRequestDto.class);
+                    existing.setAmount(newData.amount());
+                    existing.setDescription(newData.description());
+                    cashTransactionRepository.save(existing);
+                }
+                case "CHECK" -> {
+                    Check existing = checkRepository
+                            .findById(request.getEntityId())
+                            .orElseThrow(() -> new KasappException(ErrorType.CHECK_NOT_FOUND));
+
+                    if (!existing.getCompanyId().equals(companyId))
+                        throw new KasappException(ErrorType.ACCESS_DENIED);
+
+                    CheckUpdateRequestDto newData = objectMapper.readValue(
+                            request.getNewData(), CheckUpdateRequestDto.class);
+
+                    existing.setAmount(newData.amount());
+                    existing.setDescription(newData.description());
+                    existing.setDueDate(newData.dueDate());
+
+                    if (newData.checkNo() != null && !newData.checkNo().isBlank()) {
+                        boolean exists = checkRepository.existsByCheckNoAndCompanyId(
+                                newData.checkNo(), companyId);
+                        if (exists && !existing.getCheckNo().equals(newData.checkNo()))
+                            throw new RuntimeException("Bu çek numarası zaten kullanılıyor");
+                        existing.setCheckNo(newData.checkNo());
+                    }
+
+                    if (newData.bank() != null && !newData.bank().isBlank()) {
+                        existing.setBank(org.example.skills.enums.Banka.valueOf(
+                                newData.bank().toUpperCase()));
+                    }
+
+                    checkRepository.save(existing);
+                }
+                case "NOTE" -> {
+                    Note existing = noteRepository
+                            .findById(request.getEntityId())
+                            .orElseThrow(() -> new KasappException(ErrorType.NOTE_NOT_FOUND));
+
+                    if (!existing.getCompanyId().equals(companyId))
+                        throw new KasappException(ErrorType.ACCESS_DENIED);
+
+                    NoteUpdateRequestDto newData = objectMapper.readValue(
+                            request.getNewData(), NoteUpdateRequestDto.class);
+
+                    if (newData.amount() != null) existing.setAmount(newData.amount());
+                    if (newData.description() != null) existing.setDescription(newData.description());
+                    existing.setDueDate(newData.dueDate());
+                    noteRepository.save(existing);
+                }
+                default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
             }
+        } catch (KasappException e) {
+            throw e; // KasappException'ları olduğu gibi geçir
+        } catch (Exception e) {
+            log.error("Değişiklik uygulanırken hata. requestId={}, entityType={}",
+                    request.getId(), request.getEntityType(), e);
+            throw new KasappException(ErrorType.CHANGE_REQUEST_APPROVE_FAILED);
+        }
+    }
 
-            String oldDataJson = objectMapper.writeValueAsString(existing);
-
-            NoteUpdateRequestDto newData = new NoteUpdateRequestDto(
-                    dto.amount(),
-                    dto.description(),
-                    dto.dueDate()
-            );
-
-            String newDataJson = objectMapper.writeValueAsString(newData);
-
-            ChangeRequest request = ChangeRequest.builder()
-                    .companyId(companyId)
-                    .entityType("NOTE")
-                    .entityId(existing.getId())
-                    .actionType(ChangeRequestAction.UPDATE)
-                    .oldData(oldDataJson)
-                    .newData(newDataJson)
-                    .requestedBy(userId)
-                    .requestedAt(LocalDateTime.now())
-                    .status(ChangeRequestStatus.PENDING)
-                    .build();
-
-            request = changeRequestRepository.save(request);
-
+    private void logAudit(AuditAction action, String entityType, Long entityId,
+                          Long userId, Long companyId, ChangeRequest request) {
+        try {
             Map<String, Object> payload = new HashMap<>();
-            payload.put("requestId", request.getId());
+            payload.put("requestId",  request.getId());
             payload.put("entityType", request.getEntityType());
-            payload.put("entityId", request.getEntityId());
+            payload.put("entityId",   request.getEntityId());
 
-            if (request.getOldData() != null) {
+            if (request.getOldData() != null)
                 payload.put("oldData", objectMapper.readValue(request.getOldData(), Object.class));
-            }
-            if (request.getNewData() != null) {
+            if (request.getNewData() != null)
                 payload.put("newData", objectMapper.readValue(request.getNewData(), Object.class));
-            }
 
-            auditService.log(
-                    AuditAction.NOTE_UPDATE_REQUEST_CREATED,
-                    "NOTE",
-                    existing.getId(),
-                    userId,
-                    companyId,
-                    payload
-            );
+            auditService.log(action, entityType, entityId, userId, companyId, payload);
 
         } catch (Exception e) {
-            throw new RuntimeException("Senet güncelleme talebi oluşturulurken hata oluştu", e);
+            // Audit log hatası ana işlemi durdurmamalı — sadece logla
+            log.error("Audit log yazılırken hata. action={}, entityId={}", action, entityId, e);
         }
+    }
+
+    private AuditAction resolveApproveAction(String entityType) {
+        return switch (entityType) {
+            case "CASH"  -> AuditAction.CASH_UPDATE_REQUEST_APPROVED;
+            case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_APPROVED;
+            case "NOTE"  -> AuditAction.NOTE_UPDATE_REQUEST_APPROVED;
+            default      -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
+        };
+    }
+
+    private AuditAction resolveRejectAction(String entityType) {
+        return switch (entityType) {
+            case "CASH"  -> AuditAction.CASH_UPDATE_REQUEST_REJECTED;
+            case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_REJECTED;
+            case "NOTE"  -> AuditAction.NOTE_UPDATE_REQUEST_REJECTED;
+            default      -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
+        };
     }
 }

@@ -6,11 +6,8 @@ import org.example.dto.request.AddExpenseRequest;
 import org.example.security.CustomUserDetails;
 import org.example.service.ExpenseService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/expenses")
@@ -21,21 +18,10 @@ public class ExpenseController {
 
     @PostMapping
     public ResponseEntity<?> addExpense(
-            @Valid @RequestBody AddExpenseRequest req
-    ) {
+            @Valid @RequestBody AddExpenseRequest req,
+            @AuthenticationPrincipal CustomUserDetails user) {
 
-        CustomUserDetails user =
-                (CustomUserDetails) SecurityContextHolder
-                        .getContext()
-                        .getAuthentication()
-                        .getPrincipal();
-
-        expenseService.addExpense(
-                req,
-                user.getId(),
-                user.getCompanyId()
-        );
-
+        expenseService.addExpense(req, user.getId(), user.getCompanyId());
         return ResponseEntity.ok("Masraf eklendi");
     }
 }

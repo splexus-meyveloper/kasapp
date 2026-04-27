@@ -12,9 +12,13 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "audit_logs",
         indexes = {
-                @Index(name = "idx_audit_created_at", columnList = "createdAt"),
-                @Index(name = "idx_audit_username", columnList = "username"),
-                @Index(name = "idx_audit_action", columnList = "action")
+                @Index(name = "idx_audit_created_at",          columnList = "createdAt"),
+                @Index(name = "idx_audit_username",            columnList = "username"),
+                @Index(name = "idx_audit_action",              columnList = "action"),
+                // ✅ Yeni: MyActivityService bu ikisiyle sorgular
+                @Index(name = "idx_audit_company_user",        columnList = "companyId, userId"),
+                // ✅ Yeni: AuditLogController company + tarih filtresi için
+                @Index(name = "idx_audit_company_created",     columnList = "companyId, createdAt")
         })
 @Getter
 @Setter
@@ -32,7 +36,7 @@ public class AuditLog {
     private Long userId;
 
     @Column(nullable = false, length = 80)
-    private String action; // CASH_INCOME, CASH_EXPENSE, USER_CREATE, ...
+    private String action;
 
     @Column(precision = 19, scale = 2)
     private BigDecimal amount;
@@ -43,7 +47,6 @@ public class AuditLog {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    // opsiyonel ama çok faydalı (multi-tenant / firma ayrımı)
     private Long companyId;
 
     @Column(name = "cash_direction")
@@ -54,8 +57,5 @@ public class AuditLog {
     private AuditDetails detailsJson;
 
     private Long entityId;
-
     private String entityType;
-
-
 }

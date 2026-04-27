@@ -35,10 +35,24 @@ public enum ErrorType {
     COMPANY_NOT_FOUND(6007, "Firma bulunamadı", HttpStatus.NOT_FOUND),
     USER_ALREADY_EXISTS(6008, "Bu kullanıcı adı zaten mevcut", HttpStatus.BAD_REQUEST),
 
-    // Yeni eklenenler
     TOO_MANY_REQUESTS(4290, "Çok fazla istek gönderildi. Lütfen bekleyin.", HttpStatus.TOO_MANY_REQUESTS),
     WEAK_PASSWORD(4003, "Şifre yeterince güçlü değil.", HttpStatus.BAD_REQUEST),
-    INVALID_PAGE_PARAMETERS(4004, "Geçersiz sayfalama parametreleri.", HttpStatus.BAD_REQUEST);
+    INVALID_PAGE_PARAMETERS(4004, "Geçersiz sayfalama parametreleri.", HttpStatus.BAD_REQUEST),
+
+    // ── ChangeRequest hataları ─────────────────────────────────────────
+    CHANGE_REQUEST_NOT_FOUND(8001, "Değişiklik talebi bulunamadı.", HttpStatus.NOT_FOUND),
+    CHANGE_REQUEST_ALREADY_PROCESSED(8002, "Bu talep zaten işlenmiş.", HttpStatus.BAD_REQUEST),
+    CHANGE_REQUEST_ACCESS_DENIED(8003, "Bu talep üzerinde işlem yetkiniz yok.", HttpStatus.FORBIDDEN),
+    CHANGE_REQUEST_CREATE_FAILED(8004, "Değişiklik talebi oluşturulamadı.", HttpStatus.INTERNAL_SERVER_ERROR),
+    CHANGE_REQUEST_APPROVE_FAILED(8005, "Değişiklik talebi onaylanamadı.", HttpStatus.INTERNAL_SERVER_ERROR),
+    CHANGE_REQUEST_REJECT_FAILED(8006, "Değişiklik talebi reddedilemedi.", HttpStatus.INTERNAL_SERVER_ERROR),
+    UNSUPPORTED_ENTITY_TYPE(8007, "Desteklenmeyen kayıt türü.", HttpStatus.BAD_REQUEST),
+
+    // ── Kayıt bulunamadı hataları ──────────────────────────────────────
+    CASH_TRANSACTION_NOT_FOUND(5001, "Kasa hareketi bulunamadı.", HttpStatus.NOT_FOUND),
+    CHECK_NOT_FOUND(5002, "Çek bulunamadı.", HttpStatus.NOT_FOUND),
+    NOTE_NOT_FOUND(5003, "Senet bulunamadı.", HttpStatus.NOT_FOUND),
+    ACCESS_DENIED(5004, "Bu kayıt üzerinde işlem yetkiniz yok.", HttpStatus.FORBIDDEN);
 
     int code;
     String message;
