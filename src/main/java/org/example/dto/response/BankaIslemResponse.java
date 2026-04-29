@@ -9,9 +9,8 @@ public record BankaIslemResponse(
         String aciklama,
         BigDecimal tutar,
         String islemKoduAdi,
-        int islemKodu,
+        String islemKodu,    // int → String oldu
         String direction,
-
         @JsonFormat(pattern = "dd-MM-yyyy")
         LocalDate islemTarihi
 ) {}

@@ -1,7 +1,7 @@
 package org.example.dto.response;
 
 public record BankaIslemKoduResponse(
-        int kod,
+        String kod,        // int → String oldu
         String aciklama,
         String direction
 ) {}

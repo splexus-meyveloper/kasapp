@@ -5,6 +5,7 @@ import org.example.entity.AuditLog;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public record AuditLogResponse(
         Long id,
@@ -13,17 +14,31 @@ public record AuditLogResponse(
         BigDecimal amount,
         String description,
         LocalDateTime createdAt,
-        AuditDetails detailsJson   // ✅ EKLENDİ
+        String expenseType,
+        String paymentMethod,
+        AuditDetails detailsJson
 ) {
-    public static AuditLogResponse from(AuditLog l) {
+    public static AuditLogResponse from(AuditLog log) {
+        Map<String, Object> payload = log.getDetailsJson() != null ? log.getDetailsJson().getPayload() : null;
+
         return new AuditLogResponse(
-                l.getId(),
-                l.getUsername(),
-                l.getAction(),
-                l.getAmount(),
-                l.getDescription(),
-                l.getCreatedAt(),
-                l.getDetailsJson()   // ✅ EKLENDİ
+                log.getId(),
+                log.getUsername(),
+                log.getAction(),
+                log.getAmount(),
+                log.getDescription(),
+                log.getCreatedAt(),
+                stringValue(payload, "expenseType"),
+                stringValue(payload, "paymentMethod"),
+                log.getDetailsJson()
         );
+    }
+
+    private static String stringValue(Map<String, Object> payload, String key) {
+        if (payload == null) {
+            return null;
+        }
+        Object value = payload.get(key);
+        return value != null ? value.toString() : null;
     }
 }

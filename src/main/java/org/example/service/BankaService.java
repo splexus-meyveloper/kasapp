@@ -1,7 +1,11 @@
 package org.example.service;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.dto.request.BankaHesapOlusturRequest;
 import org.example.dto.response.BankaHesapResponse;
@@ -14,8 +18,9 @@ import org.example.exception.KasappException;
 import org.example.repository.BankaHesapRepository;
 import org.example.repository.BankaIslemRepository;
 import org.example.skills.enums.BankaIslemKodu;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,18 +29,20 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class BankaService {
 
+    private static final Logger log = LoggerFactory.getLogger(BankaService.class);
+
     private final BankaHesapRepository hesapRepo;
     private final BankaIslemRepository islemRepo;
-
-    // ─── HESAP İŞLEMLERİ ──────────────────────────────────────────
 
     @Transactional
     public BankaHesapResponse hesapOlustur(BankaHesapOlusturRequest req,
@@ -77,8 +84,6 @@ public class BankaService {
         hesapRepo.save(hesap);
     }
 
-    // ─── EXCEL YÜKLEME ────────────────────────────────────────────
-
     @Transactional
     public int excelYukle(Long hesapId, Long companyId, Long userId,
                           MultipartFile file) throws IOException {
@@ -91,26 +96,21 @@ public class BankaService {
 
             for (int rowIdx = 1; rowIdx <= sheet.getLastRowNum(); rowIdx++) {
                 Row row = sheet.getRow(rowIdx);
-                if (row == null) continue;
-
-                String aciklama  = strVal(row.getCell(0));
-                String tutarStr  = strVal(row.getCell(1));
-                String kodStr    = strVal(row.getCell(2));
-                String tarihStr  = strVal(row.getCell(3));
-
-                if (kodStr.isBlank() || tutarStr.isBlank()) continue;
-
-                int kodInt;
-                try {
-                    kodInt = (int) Double.parseDouble(kodStr);
-                } catch (NumberFormatException e) {
+                if (row == null) {
                     continue;
                 }
 
-                BankaIslemKodu islemKodu;
-                try {
-                    islemKodu = BankaIslemKodu.fromKod(kodInt);
-                } catch (IllegalArgumentException e) {
+                String tarihStr = strVal(row.getCell(0));
+                String aciklama = strVal(row.getCell(1));
+                String tutarStr = strVal(row.getCell(2));
+                String kodStr = strVal(row.getCell(3));
+
+                if (kodStr.isBlank() || tutarStr.isBlank()) {
+                    continue;
+                }
+
+                BankaIslemKodu islemKodu = BankaIslemKodu.fromKod(kodStr.trim());
+                if (islemKodu == null) {
                     continue;
                 }
 
@@ -121,7 +121,9 @@ public class BankaService {
                     continue;
                 }
 
-                if (tutar.compareTo(BigDecimal.ZERO) <= 0) continue;
+                if (tutar.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
 
                 islemler.add(BankaIslem.builder()
                         .hesap(hesap)
@@ -137,24 +139,38 @@ public class BankaService {
             }
         }
 
-        if (!islemler.isEmpty()) islemRepo.saveAll(islemler);
+        if (!islemler.isEmpty()) {
+            islemRepo.saveAll(islemler);
+        }
         return islemler.size();
     }
-
-    // ─── İŞLEM LİSTESİ ───────────────────────────────────────────
 
     public List<BankaIslemResponse> islemleriGetir(Long hesapId, Long companyId,
                                                    int page, int size) {
         getHesap(hesapId, companyId);
-        PageRequest pr = PageRequest.of(page, size,
-                Sort.by(Sort.Order.desc("yuklemeTarihi")));
-        return islemRepo
-                .findByHesapIdAndCompanyIdOrderByIslemTarihiDescYuklemeTarihiDesc(hesapId, companyId, pr)
+        PageRequest pr = PageRequest.of(page, size);
+        return islemRepo.findRowsByHesapIdAndCompanyId(hesapId, companyId, pr)
+                .stream()
                 .map(this::toIslemResponse)
+                .filter(Objects::nonNull)
                 .toList();
     }
 
-    // ─── İŞLEM KODLARI ───────────────────────────────────────────
+    @Transactional
+    public int islemleriTemizle(Long hesapId, Long companyId) {
+        getHesap(hesapId, companyId);
+        int silinen = Math.toIntExact(islemRepo.countByHesapIdAndCompanyId(hesapId, companyId));
+        islemRepo.deleteByHesapIdAndCompanyId(hesapId, companyId);
+        return silinen;
+    }
+
+    @Transactional
+    public void islemSil(Long hesapId, Long islemId, Long companyId) {
+        getHesap(hesapId, companyId);
+        BankaIslem islem = islemRepo.findByIdAndHesapIdAndCompanyId(islemId, hesapId, companyId)
+                .orElseThrow(() -> new KasappException(ErrorType.BANKA_HESAP_BULUNAMADI));
+        islemRepo.delete(islem);
+    }
 
     public List<BankaIslemKoduResponse> islemKodlariGetir() {
         return Arrays.stream(BankaIslemKodu.values())
@@ -162,8 +178,6 @@ public class BankaService {
                         k.getKod(), k.getAciklama(), k.getDirection().name()))
                 .toList();
     }
-
-    // ─── YARDIMCI ─────────────────────────────────────────────────
 
     private BankaHesap getHesap(Long hesapId, Long companyId) {
         return hesapRepo.findByIdAndCompanyId(hesapId, companyId)
@@ -175,53 +189,111 @@ public class BankaService {
         return hesap.getBaslangicBakiye().add(net == null ? BigDecimal.ZERO : net);
     }
 
-    private BankaHesapResponse toHesapResponse(BankaHesap h) {
+    private BankaHesapResponse toHesapResponse(BankaHesap hesap) {
         return new BankaHesapResponse(
-                h.getId(), h.getHesapKodu(), h.getBankaAdi(),
-                h.getHesapNumarasi(), h.getBaslangicBakiye(),
-                guncelBakiye(h), h.getOlusturmaTarihi());
+                hesap.getId(),
+                hesap.getHesapKodu(),
+                hesap.getBankaAdi(),
+                hesap.getHesapNumarasi(),
+                hesap.getBaslangicBakiye(),
+                guncelBakiye(hesap),
+                hesap.getOlusturmaTarihi());
     }
 
-    private BankaIslemResponse toIslemResponse(BankaIslem i) {
+    private BankaIslemResponse toIslemResponse(BankaIslemRepository.BankaIslemRow row) {
+        BankaIslemKodu islemKodu = parseIslemKodu(row.getIslemKoduRaw());
+        if (islemKodu == null) {
+            log.warn("Legacy/invalid banka islem row skipped. id={}, rawKod={}",
+                    row.getId(), row.getIslemKoduRaw());
+            return null;
+        }
+
+        BankaIslemKodu.Direction direction = parseDirection(row.getDirectionRaw(), islemKodu);
         return new BankaIslemResponse(
-                i.getId(), i.getAciklama(), i.getTutar(),
-                i.getIslemKodu().getAciklama(), i.getIslemKodu().getKod(),
-                i.getDirection().name(), i.getIslemTarihi());
+                row.getId(),
+                row.getAciklama(),
+                row.getTutar(),
+                islemKodu.getAciklama(),
+                islemKodu.getKod(),
+                direction.name(),
+                parseStoredDate(row.getIslemTarihiRaw()));
     }
 
     private String strVal(Cell cell) {
-        if (cell == null) return "";
+        if (cell == null) {
+            return "";
+        }
+
         return switch (cell.getCellType()) {
-            case STRING  -> cell.getStringCellValue().trim();
+            case STRING -> cell.getStringCellValue().trim();
             case NUMERIC -> {
-                if (DateUtil.isCellDateFormatted(cell))
+                if (DateUtil.isCellDateFormatted(cell)) {
                     yield cell.getLocalDateTimeCellValue().toLocalDate().toString();
+                }
                 yield String.valueOf(cell.getNumericCellValue());
             }
             case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
-            default      -> "";
+            default -> "";
         };
     }
 
-    private LocalDate parseDate(String s) {
-        if (s == null || s.isBlank()) return LocalDate.now();
+    private LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return LocalDate.now();
+        }
 
         String[] patterns = {
                 "dd-MM-yyyy",
                 "dd/MM/yyyy",
-                "dd.MM.yyyy",   // 12.12.2026
+                "dd.MM.yyyy",
                 "yyyy-MM-dd",
                 "d-M-yyyy",
                 "d/M/yyyy",
-                "d.M.yyyy"      // 1.1.2026
+                "d.M.yyyy"
         };
 
         for (String pattern : patterns) {
             try {
-                return LocalDate.parse(s, java.time.format.DateTimeFormatter.ofPattern(pattern));
-            } catch (Exception ignored) {}
+                return LocalDate.parse(value, DateTimeFormatter.ofPattern(pattern));
+            } catch (Exception ignored) {
+            }
         }
 
         return LocalDate.now();
+    }
+
+    private LocalDate parseStoredDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return LocalDate.parse(value);
+        } catch (Exception ignored) {
+            return parseDate(value);
+        }
+    }
+
+    private BankaIslemKodu parseIslemKodu(String rawKod) {
+        if (rawKod == null || rawKod.isBlank()) {
+            return null;
+        }
+
+        try {
+            return BankaIslemKodu.valueOf(rawKod.trim());
+        } catch (IllegalArgumentException ignored) {
+            return BankaIslemKodu.fromKod(rawKod);
+        }
+    }
+
+    private BankaIslemKodu.Direction parseDirection(String rawDirection, BankaIslemKodu islemKodu) {
+        if (rawDirection != null && !rawDirection.isBlank()) {
+            try {
+                return BankaIslemKodu.Direction.valueOf(rawDirection.trim());
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        return islemKodu.getDirection();
     }
 }

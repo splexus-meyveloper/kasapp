@@ -6,29 +6,24 @@ import java.util.Map;
 
 public record ReportSummaryResponse(
 
-        // Genel özet
         BigDecimal totalIncome,
         BigDecimal totalExpense,
         BigDecimal netBalance,
         BigDecimal currentCashBalance,
 
-        // Aylık dağılım
         List<MonthlyBreakdown> monthlyBreakdown,
 
-        // Masraf kategorileri
         Map<String, BigDecimal> expenseByCategory,
+        Map<String, BigDecimal> expenseByPaymentMethod,
 
-        // Çek özeti
         BigDecimal checkPortfolioTotal,
         long checkCount,
         List<DueItemResponse> upcomingChecks,
 
-        // Senet özeti
         BigDecimal notePortfolioTotal,
         long noteCount,
         List<DueItemResponse> upcomingNotes,
 
-        // Kredi özeti
         BigDecimal totalLoanDebt,
         List<LoanSummaryItem> activeLoans
 

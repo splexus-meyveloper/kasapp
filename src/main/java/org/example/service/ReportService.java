@@ -60,6 +60,12 @@ public class ReportService {
                 row[0].toString(), (BigDecimal) row[1]
         ));
 
+        Map<String, BigDecimal> expenseByPaymentMethod = new LinkedHashMap<>();
+        List<Object[]> paymentRows = expenseRepo.sumByPaymentMethodAndDateRange(companyId, start, end);
+        paymentRows.forEach(row -> expenseByPaymentMethod.put(
+                row[0] == null ? "CASH" : row[0].toString(), (BigDecimal) row[1]
+        ));
+
         // ── Çek özeti ─────────────────────────────────────────────────
         BigDecimal checkTotal = checkRepo.getPortfolioTotal(companyId);
         long checkCount = checkRepo.findByCompanyId(companyId).size();
@@ -95,7 +101,7 @@ public class ReportService {
 
         return new ReportSummaryResponse(
                 totalIncome, totalExpense, netBalance, currentCash,
-                monthly, expenseByCategory,
+                monthly, expenseByCategory, expenseByPaymentMethod,
                 checkTotal, checkCount, upcomingChecks,
                 noteTotal, noteCount, upcomingNotes,
                 totalLoanDebt, activeLoans

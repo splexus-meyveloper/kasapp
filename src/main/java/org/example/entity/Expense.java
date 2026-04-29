@@ -2,6 +2,7 @@ package org.example.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.example.skills.enums.ExpensePaymentMethod;
 import org.example.skills.enums.ExpenseType;
 
 import java.math.BigDecimal;
@@ -25,6 +26,9 @@ public class Expense {
 
     @Enumerated(EnumType.STRING)
     private ExpenseType type;
+
+    @Enumerated(EnumType.STRING)
+    private ExpensePaymentMethod paymentMethod;
 
     private BigDecimal amount;
 

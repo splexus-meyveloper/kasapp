@@ -3,18 +3,19 @@ package org.example.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
-import org.example.dto.request.*;
-import org.example.skills.enums.AuditAction;
+import org.example.dto.request.CheckCollectRequest;
+import org.example.dto.request.CheckEndorseRequest;
+import org.example.dto.request.CheckEntryRequest;
+import org.example.dto.request.CheckPaidRequest;
 import org.example.dto.response.CheckListResponse;
 import org.example.entity.Check;
 import org.example.repository.CheckRepository;
+import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.CashDirection;
 import org.example.skills.enums.CheckStatus;
 import org.example.skills.enums.CheckType;
 import org.springframework.stereotype.Service;
-import org.example.service.RealtimeEventService;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,14 +33,13 @@ public class CheckService {
     @Transactional
     public Check checkIn(CheckEntryRequest req,
                          Long userId,
-                         Long companyId){
+                         Long companyId) {
 
-        if(repository.existsByCheckNoAndCompanyId(
-                req.checkNo(),companyId)){
-            throw new RuntimeException("Bu çek zaten kayıtlı");
+        if (repository.existsByCheckNoAndCompanyId(req.checkNo(), companyId)) {
+            throw new RuntimeException("Bu cek zaten kayitli");
         }
 
-        Check c = Check.builder()
+        Check check = Check.builder()
                 .checkNo(req.checkNo())
                 .bank(req.bank())
                 .dueDate(req.dueDate())
@@ -52,10 +52,10 @@ public class CheckService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        c = repository.save(c);
-        realtimeEventService.publish("CEK", "CHECK_IN", companyId, c.getId());
+        check = repository.save(check);
+        realtimeEventService.publish("CEK", "CHECK_IN", companyId, check.getId());
 
-        return c;
+        return check;
     }
 
     @Audit(
@@ -65,71 +65,81 @@ public class CheckService {
     @Transactional
     public Check collect(CheckCollectRequest req,
                          Long userId,
-                         Long companyId){
+                         Long companyId) {
 
-        Check c = repository
+        Check check = repository
                 .findByIdAndCompanyId(req.id(), companyId)
-                .orElseThrow(() ->
-                        new RuntimeException("Çek bulunamadı"));
+                .orElseThrow(() -> new RuntimeException("Cek bulunamadi"));
 
-        if(c.getStatus()!=CheckStatus.PORTFOYDE)
-            throw new RuntimeException("Çek portföyde değil");
+        if (check.getStatus() != CheckStatus.PORTFOYDE) {
+            throw new RuntimeException("Cek portfoyde degil");
+        }
 
-        c.setStatus(CheckStatus.TAHSIL_EDILDI);
+        check.setStatus(CheckStatus.TAHSIL_EDILDI);
+        check.setDescription("Cek Tahsil edildi " + check.getCheckNo());
 
-        // 🔥 KASA GİRİŞ
-        cashService.addIncome(
-                c.getAmount(),
-                "Çek tahsil edildi • " + c.getCheckNo(),
+        cashService.addIncomeFromModule(
+                check.getAmount(),
+                "Cek Tahsil edildi " + check.getCheckNo(),
                 userId,
                 companyId
         );
 
-        realtimeEventService.publish("CEK", "CHECK_COLLECT", companyId, c.getId());
-        return c;
+        realtimeEventService.publish("CEK", "CHECK_COLLECT", companyId, check.getId());
+        return check;
     }
 
+    @Audit(
+            action = AuditAction.CHECK_ENDORSE,
+            cash = CashDirection.NONE
+    )
     @Transactional
     public Check endorse(CheckEndorseRequest req,
                          Long userId,
-                         Long companyId){
+                         Long companyId) {
 
-        Check c = repository
+        Check check = repository
                 .findByIdAndCompanyId(req.id(), companyId)
-                .orElseThrow(() ->
-                        new RuntimeException("Çek bulunamadı"));
+                .orElseThrow(() -> new RuntimeException("Cek bulunamadi"));
 
-        if(c.getStatus() != CheckStatus.PORTFOYDE) {
-            throw new RuntimeException("Çek portföyde değil");
+        if (check.getStatus() != CheckStatus.PORTFOYDE) {
+            throw new RuntimeException("Cek portfoyde degil");
         }
 
-        c.setStatus(CheckStatus.CIRO_EDILDI);
+        check.setStatus(CheckStatus.CIRO_EDILDI);
 
-        if(req.description() != null && !req.description().isBlank()){
-            c.setDescription(req.description());
+        StringBuilder desc = new StringBuilder();
+        if (req.endorsedTo() != null && !req.endorsedTo().isBlank()) {
+            desc.append("Ciro edilen: ").append(req.endorsedTo().trim());
+        }
+        if (req.description() != null && !req.description().isBlank()) {
+            if (!desc.isEmpty()) {
+                desc.append(" • ");
+            }
+            desc.append(req.description().trim());
         }
 
-        realtimeEventService.publish("CEK", "CHECK_ENDORSE", companyId, c.getId());
-        return c;
+        if (!desc.isEmpty()) {
+            check.setDescription(desc.toString());
+        }
+
+        realtimeEventService.publish("CEK", "CHECK_ENDORSE", companyId, check.getId());
+        return check;
     }
 
-    public List<CheckListResponse> getPortfolioChecks(Long companyId){
-
+    public List<CheckListResponse> getPortfolioChecks(Long companyId) {
         return repository
-                .findByStatusAndCompanyId(
-                        CheckStatus.PORTFOYDE,
-                        companyId
-                )
+                .findByStatusAndCompanyId(CheckStatus.PORTFOYDE, companyId)
                 .stream()
-                .map(c -> new CheckListResponse(
-                        c.getId(),
-                        c.getCheckNo(),
-                        c.getBank(),
-                        c.getDueDate(),
-                        c.getAmount(),
-                        c.getDescription(),
-                        c.getStatus(),
-                        c.getCheckType()
+                .map(check -> new CheckListResponse(
+                        check.getId(),
+                        check.getCheckNo(),
+                        check.getBank(),
+                        check.getDueDate(),
+                        check.getAmount(),
+                        check.getDescription(),
+                        check.getStatus(),
+                        check.getCheckType()
                 ))
                 .toList();
     }
@@ -141,32 +151,30 @@ public class CheckService {
     @Transactional
     public Check markAsPaid(CheckPaidRequest req,
                             Long userId,
-                            Long companyId){
+                            Long companyId) {
 
-        Check c = repository
+        Check check = repository
                 .findByIdAndCompanyId(req.id(), companyId)
-                .orElseThrow(() -> new RuntimeException("Çek bulunamadı"));
+                .orElseThrow(() -> new RuntimeException("Cek bulunamadi"));
 
-        if(c.getCheckType() != CheckType.KENDI){
-            throw new RuntimeException("Bu işlem sadece kendi çekler için geçerli");
+        if (check.getCheckType() != CheckType.KENDI) {
+            throw new RuntimeException("Bu islem sadece kendi cekler icin gecerli");
         }
 
-        if(c.getStatus() != CheckStatus.PORTFOYDE){
-            throw new RuntimeException("Çek zaten işlenmiş");
+        if (check.getStatus() != CheckStatus.PORTFOYDE) {
+            throw new RuntimeException("Cek zaten islenmis");
         }
 
-        c.setStatus(CheckStatus.ODENDI);
+        check.setStatus(CheckStatus.ODENDI);
 
-        String logDesc = "Kendi çek ödendi • " + c.getCheckNo();
-
-        if(req.description() != null && !req.description().isBlank()){
+        String logDesc = "Kendi cek odendi • " + check.getCheckNo();
+        if (req.description() != null && !req.description().isBlank()) {
             logDesc += " • " + req.description();
         }
 
-        c.setDescription(logDesc);
+        check.setDescription(logDesc);
 
-        realtimeEventService.publish("CEK", "CHECK_OUT", companyId, c.getId());
-        return c; // 🔥 KRİTİK
+        realtimeEventService.publish("CEK", "CHECK_OUT", companyId, check.getId());
+        return check;
     }
-
 }

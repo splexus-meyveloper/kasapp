@@ -60,6 +60,15 @@ public class CashService {
         return tx;
     }
 
+    @Transactional
+    public CashTransaction addIncomeFromModule(@AuditAmount BigDecimal amount,
+                                               @AuditDesc String description,
+                                               Long userId, Long companyId) {
+        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId);
+        realtimeEventService.publish("KASA", "CASH_INCOME", companyId, tx.getId());
+        return tx;
+    }
+
     public BigDecimal getBalance(Long companyId) {
         return repository.getCurrentBalance(companyId);
     }

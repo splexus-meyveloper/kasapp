@@ -72,7 +72,10 @@ public class MyActivityService {
                     .direction(resolveDirection(log.getAction()))
                     .date(log.getCreatedAt())
                     .entityId(log.getEntityId())
-                    .entityType(log.getEntityType());
+                    .entityType(log.getEntityType())
+                    .detailsJson(log.getDetailsJson())
+                    .expenseType(getPayloadValue(log, "expenseType"))
+                    .paymentMethod(getPayloadValue(log, "paymentMethod"));
 
             enrichEntityFields(builder, log.getEntityType(), log.getEntityId(), companyId);
             result.add(builder.build());
@@ -245,5 +248,13 @@ public class MyActivityService {
         if (action.contains("INCOME") || action.contains("IN")) return "IN";
         if (action.contains("EXPENSE") || action.contains("OUT")) return "OUT";
         return "NONE";
+    }
+
+    private String getPayloadValue(AuditLog log, String key) {
+        if (log.getDetailsJson() == null || log.getDetailsJson().getPayload() == null) {
+            return null;
+        }
+        Object value = log.getDetailsJson().getPayload().get(key);
+        return value != null ? value.toString() : null;
     }
 }
