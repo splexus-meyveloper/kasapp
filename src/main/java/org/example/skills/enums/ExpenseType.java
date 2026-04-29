@@ -12,7 +12,7 @@ public enum ExpenseType {
     MARKET,
     KIRTASIYE,
     SEYAHAT,
-    NILUFERKÖY,
+    NILUFERKOY,
     ORTAK_GIDER,
     ALI_ALTIKARDESLER,
     ATINC_ALTIKARDESLER,

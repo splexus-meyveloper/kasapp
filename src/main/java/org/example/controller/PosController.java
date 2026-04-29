@@ -23,14 +23,12 @@ public class PosController {
 
     private final PosService service;
 
-    /** Terminal listesi — KASA yetkisi olan herkes görebilir */
     @PreAuthorize("hasAuthority('KASA') or hasRole('ADMIN')")
     @GetMapping("/terminals")
     public Map<PosType, List<PosTerminalInfo>> getTerminals() {
         return service.getTerminals();
     }
 
-    /** POS kaydı oluştur — KASA yetkisi olan herkes */
     @PreAuthorize("hasAuthority('KASA') or hasRole('ADMIN')")
     @PostMapping("/log")
     public ResponseEntity<PosLogResponse> logPos(
@@ -41,7 +39,7 @@ public class PosController {
     }
 
     /** Log listesi — sadece admin */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('KASA') or hasRole('ADMIN')")
     @GetMapping("/logs")
     public List<PosLogResponse> getLogs(
             @RequestParam(defaultValue = "0")  int page,

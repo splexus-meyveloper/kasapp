@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 
@@ -21,17 +22,17 @@ public interface AuditLogRepository
         SELECT a FROM AuditLog a
         WHERE a.companyId = :companyId
           AND a.userId = :userId
-          AND (:action IS NULL OR a.action = :action)
-          AND (:start  IS NULL OR a.createdAt >= :start)
-          AND (:end    IS NULL OR a.createdAt < :end)
+          AND (CAST(:action AS string) IS NULL OR a.action = :action)
+          AND (CAST(:start AS java.time.LocalDateTime) IS NULL OR a.createdAt >= :start)
+          AND (CAST(:end AS java.time.LocalDateTime) IS NULL OR a.createdAt < :end)
         ORDER BY a.createdAt DESC
     """)
     Page<AuditLog> findFiltered(
-            Long companyId,
-            Long userId,
-            String action,
-            LocalDateTime start,
-            LocalDateTime end,
+            @Param("companyId") Long companyId,
+            @Param("userId")    Long userId,
+            @Param("action")    String action,
+            @Param("start")     LocalDateTime start,
+            @Param("end")       LocalDateTime end,
             Pageable pageable
     );
 }

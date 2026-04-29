@@ -3,6 +3,8 @@ package org.example.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.skills.enums.TransactionType;
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,6 +26,7 @@ public class CashTransaction {
     @Column(nullable = false)
     private BigDecimal amount;
     private String description;
+    @JsonFormat(pattern = "dd-MM-yyyy HH:mm:ss")
     private LocalDateTime transactionDate;
     private Long userId;
     @Column(nullable = false)

@@ -36,6 +36,7 @@ public class AuditLogController {
     private final AuditLogRepository repo;
     private final AuditService service;
 
+    /** Admin tüm şirket loglarını görür */
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public PageResponse<AuditLogResponse> list(
@@ -53,29 +54,15 @@ public class AuditLogController {
     ) {
         Long companyId = user.getCompanyId();
 
-        Specification<AuditLog> spec;
+        Specification<AuditLog> spec = Specification
+                .where(AuditLogSpecifications.companyIdEquals(companyId))
+                .and(AuditLogSpecifications.usernameContains(username))
+                .and(AuditLogSpecifications.actionEquals(action))
+                .and(AuditLogSpecifications.amountGte(minAmount))
+                .and(AuditLogSpecifications.amountLte(maxAmount))
+                .and(AuditLogSpecifications.descriptionContains(q))
+                .and(AuditLogSpecifications.createdBetween(start, end));
 
-        if ("ADMIN".equals(user.getRole())) {
-            spec = Specification
-                    .where(AuditLogSpecifications.companyIdEquals(companyId))
-                    .and(AuditLogSpecifications.usernameContains(username))
-                    .and(AuditLogSpecifications.actionEquals(action))
-                    .and(AuditLogSpecifications.amountGte(minAmount))
-                    .and(AuditLogSpecifications.amountLte(maxAmount))
-                    .and(AuditLogSpecifications.descriptionContains(q))
-                    .and(AuditLogSpecifications.createdBetween(start, end));
-        } else {
-            spec = Specification
-                    .where(AuditLogSpecifications.companyIdEquals(companyId))
-                    .and(AuditLogSpecifications.usernameContains(username))
-                    .and(AuditLogSpecifications.actionEquals(action))
-                    .and(AuditLogSpecifications.amountGte(minAmount))
-                    .and(AuditLogSpecifications.amountLte(maxAmount))
-                    .and(AuditLogSpecifications.descriptionContains(q))
-                    .and(AuditLogSpecifications.createdBetween(start, end));
-        }
-
-        // Pagination güvenlik sınırları
         int page = Math.min(Math.max(pageable.getPageNumber(), 0), MAX_PAGE_NUMBER);
         int size = Math.min(
                 pageable.getPageSize() > 0 ? pageable.getPageSize() : DEFAULT_PAGE_SIZE,
@@ -96,18 +83,17 @@ public class AuditLogController {
         );
     }
 
+    /** Normal kullanıcı kendi loglarını görür — yetki kontrolü yok, herkes erişebilir */
     @GetMapping("/my-actions")
     public PageResponse<AuditLogResponse> getMyActions(
             @AuthenticationPrincipal CustomUserDetails user,
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        // Kullanıcının kendi loglarını görürken de limit uygula
         int safePage = Math.min(Math.max(page, 0), MAX_PAGE_NUMBER);
         int safeSize = Math.min(size > 0 ? size : DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
 
         Page<AuditLog> result = service.getUserLogs(user.getUsername(), safePage, safeSize);
-
         Page<AuditLogResponse> mapped = result.map(AuditLogResponse::from);
 
         return new PageResponse<>(

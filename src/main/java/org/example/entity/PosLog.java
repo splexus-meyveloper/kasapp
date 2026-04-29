@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.example.skills.enums.PosTerminal;
 import org.example.skills.enums.PosType;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,6 +33,6 @@ public class PosLog {
 
     private Long userId;
     private Long companyId;
-
+    @JsonFormat(pattern = "dd-MM-yyyy HH:mm:ss")
     private LocalDateTime logDate;
 }
