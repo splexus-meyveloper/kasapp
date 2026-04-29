@@ -29,16 +29,6 @@ public class DataInitializer {
     @PostConstruct
     public void init() {
 
-        // Permission'ları oluştur (tüm ortamlarda gerekli olabilir,
-        // ama test kullanıcıları sadece dev'de oluşturulsun)
-        Arrays.stream(EPermission.values()).forEach(p -> {
-            permissionRepository.findByCode(p.name()).orElseGet(() -> {
-                Permission perm = new Permission();
-                perm.setCode(p.name());
-                return permissionRepository.save(perm);
-            });
-        });
-
         // Test admin 1
         if (userRepository.findByUsername("admin").isEmpty()) {
             User admin = new User();

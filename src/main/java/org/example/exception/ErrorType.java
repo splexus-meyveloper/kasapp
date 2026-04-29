@@ -61,7 +61,12 @@ public enum ErrorType {
     LOAN_INSTALLMENT_DATE_MISMATCH(9004, "Bitiş tarihi taksit sayısı ile uyumsuz.", HttpStatus.BAD_REQUEST),
     LOAN_AMOUNT_INVALID(9005, "Kredi tutarı 0'dan büyük olmalıdır.", HttpStatus.BAD_REQUEST),
     LOAN_INSTALLMENT_INVALID(9006, "Taksit sayısı geçersiz.", HttpStatus.BAD_REQUEST),
-    LOAN_END_DATE_INVALID(9007, "Bitiş tarihi geçmiş bir tarih olamaz.", HttpStatus.BAD_REQUEST);
+    LOAN_END_DATE_INVALID(9007, "Bitiş tarihi geçmiş bir tarih olamaz.", HttpStatus.BAD_REQUEST),
+
+    // ── Banka hataları ────────────────────────────────────────────────
+    BANKA_HESAP_BULUNAMADI(10001, "Banka hesabı bulunamadı.", HttpStatus.NOT_FOUND),
+    BANKA_HESAP_MEVCUT    (10002, "Bu hesap kodu zaten mevcut.", HttpStatus.BAD_REQUEST),
+    BANKA_EXCEL_HATALI    (10003, "Excel dosyası okunamadı veya format hatalı.", HttpStatus.BAD_REQUEST);
 
     int code;
     String message;

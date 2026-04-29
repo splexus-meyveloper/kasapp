@@ -19,50 +19,65 @@ import java.util.*;
 @RequiredArgsConstructor
 public class DashboardService {
 
-    private final NoteRepository noteRepository;
-    private final LoanRepository loanRepository;
-    private final CashTransactionRepository repo;
-    private final CheckRepository checkRepo;
+    private final NoteRepository              noteRepository;
+    private final LoanRepository              loanRepository;
+    private final CashTransactionRepository   repo;
+    private final CheckRepository             checkRepo;
 
     public DashboardResponse getDashboard(Long companyId, Long currentUserId,
                                           String role, Long selectedUserId) {
 
-        LocalDate today = LocalDate.now();
+        LocalDate today          = LocalDate.now();
         LocalDateTime todayStart = today.atStartOfDay();
-        LocalDateTime tomorrowStart = today.plusDays(1).atStartOfDay();
+        LocalDateTime tomorrow   = today.plusDays(1).atStartOfDay();
+
+        LocalDate firstDayOfMonth    = today.withDayOfMonth(1);
+        LocalDateTime monthStart     = firstDayOfMonth.atStartOfDay();
+        LocalDateTime nextMonthStart = firstDayOfMonth.plusMonths(1).atStartOfDay();
 
         Long effectiveUserId = resolveUserId(role, currentUserId, selectedUserId);
-
-        LocalDate firstDayOfMonth = today.withDayOfMonth(1);
-        LocalDateTime monthStart = firstDayOfMonth.atStartOfDay();
-        LocalDateTime nextMonthStart = firstDayOfMonth.plusMonths(1).atStartOfDay();
+        boolean isAdmin      = "ADMIN".equals(role);
 
         BigDecimal todayIncome;
         BigDecimal todayExpense;
         BigDecimal monthlyNet;
 
         if (effectiveUserId == null) {
-            todayIncome  = repo.sumTodayIncome(companyId, TransactionType.INCOME, todayStart, tomorrowStart);
-            todayExpense = repo.sumTodayExpense(companyId, TransactionType.EXPENSE, todayStart, tomorrowStart);
-            monthlyNet   = "ADMIN".equals(role)
+            todayIncome  = repo.sumTodayIncome(companyId, TransactionType.INCOME, todayStart, tomorrow);
+            todayExpense = repo.sumTodayExpense(companyId, TransactionType.EXPENSE, todayStart, tomorrow);
+            monthlyNet   = isAdmin
                     ? repo.monthlyNet(companyId, TransactionType.INCOME, monthStart, nextMonthStart)
                     : BigDecimal.ZERO;
         } else {
-            todayIncome  = repo.sumTodayIncomeByUser(companyId, effectiveUserId, TransactionType.INCOME, todayStart, tomorrowStart);
-            todayExpense = repo.sumTodayExpenseByUser(companyId, effectiveUserId, TransactionType.EXPENSE, todayStart, tomorrowStart);
-            monthlyNet   = "ADMIN".equals(role)
+            todayIncome  = repo.sumTodayIncomeByUser(companyId, effectiveUserId, TransactionType.INCOME, todayStart, tomorrow);
+            todayExpense = repo.sumTodayExpenseByUser(companyId, effectiveUserId, TransactionType.EXPENSE, todayStart, tomorrow);
+            monthlyNet   = isAdmin
                     ? repo.monthlyNetByUser(companyId, effectiveUserId, TransactionType.INCOME, monthStart, nextMonthStart)
                     : BigDecimal.ZERO;
         }
 
         BigDecimal balance            = repo.balance(companyId, TransactionType.INCOME);
         BigDecimal checkPortfolioTotal = checkRepo.getPortfolioTotal(companyId);
+        BigDecimal totalLoanDebt      = loanRepository.sumRemainingDebtByCompanyId(companyId);
 
-        // ✅ DB'de topla — artık Java'da stream yok
-        BigDecimal totalLoanDebt = loanRepository.sumRemainingDebtByCompanyId(companyId);
+        // Günlük net bakiye (tüm giriş - tüm çıkış, bugün için)
+        BigDecimal dailyNetBalance = todayIncome.subtract(todayExpense);
 
-        return new DashboardResponse(todayIncome, todayExpense, monthlyNet,
-                balance, checkPortfolioTotal, totalLoanDebt);
+        // Normal kullanıcı: bugün girdiği çek ve senetler
+        BigDecimal todayCheckTotal = BigDecimal.ZERO;
+        BigDecimal todayNoteTotal  = BigDecimal.ZERO;
+
+        if (!isAdmin) {
+            todayCheckTotal = checkRepo.sumTodayByUser(companyId, currentUserId, todayStart, tomorrow);
+            todayNoteTotal  = noteRepository.sumTodayByUser(companyId, currentUserId, todayStart, tomorrow);
+        }
+
+        return new DashboardResponse(
+                todayIncome, todayExpense, monthlyNet,
+                balance, checkPortfolioTotal, totalLoanDebt,
+                todayCheckTotal, todayNoteTotal,
+                dailyNetBalance
+        );
     }
 
     public Map<String, Object> getChart(Long companyId, Long currentUserId,
@@ -70,21 +85,18 @@ public class DashboardService {
 
         Long effectiveUserId = resolveUserId(role, currentUserId, selectedUserId);
 
-        // Son ~10 gün çek (7 iş günü için pazar atlandığında yetsin)
-        LocalDate today = LocalDate.now();
+        LocalDate today          = LocalDate.now();
         LocalDateTime rangeStart = today.minusDays(10).atStartOfDay();
         LocalDateTime rangeEnd   = today.plusDays(1).atStartOfDay();
 
-        // ✅ Tek sorguda tüm günlerin toplamlarını al (eski: 14 sorgu)
         List<Object[]> rows = (effectiveUserId == null)
                 ? repo.sumByDayAndType(companyId, rangeStart, rangeEnd)
                 : repo.sumByDayAndTypeForUser(companyId, effectiveUserId, rangeStart, rangeEnd);
 
-        // Sonuçları gün → {INCOME, EXPENSE} map'ine çevir
         Map<LocalDate, BigDecimal[]> dayMap = new LinkedHashMap<>();
         for (Object[] row : rows) {
-            LocalDate day   = ((java.sql.Date) row[0]).toLocalDate();
-            String    type  = row[1].toString();
+            LocalDate  day   = ((java.sql.Date) row[0]).toLocalDate();
+            String     type  = row[1].toString();
             BigDecimal total = (BigDecimal) row[2];
 
             dayMap.computeIfAbsent(day, d -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
@@ -92,13 +104,11 @@ public class DashboardService {
             if ("EXPENSE".equals(type)) dayMap.get(day)[1] = total;
         }
 
-        // 7 iş günü seç (pazar atla), en yeniden geriye git
         List<String>     labels   = new ArrayList<>();
         List<BigDecimal> incomes  = new ArrayList<>();
         List<BigDecimal> expenses = new ArrayList<>();
 
-        int count = 0;
-        int i     = 0;
+        int count = 0, i = 0;
         while (count < 7) {
             LocalDate day = today.minusDays(i++);
             if (day.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
@@ -121,10 +131,9 @@ public class DashboardService {
         return result;
     }
 
-    // ── Yardımcı: hangi userId kullanılacak ──────────────────────────
     private Long resolveUserId(String role, Long currentUserId, Long selectedUserId) {
-        if (!"ADMIN".equals(role))     return currentUserId;
-        if (selectedUserId != null)    return selectedUserId;
+        if (!"ADMIN".equals(role)) return currentUserId;
+        if (selectedUserId != null) return selectedUserId;
         return null;
     }
 }

@@ -31,5 +31,8 @@ public enum AuditAction {
     NOTE_UPDATE_REQUEST_APPROVED,
     NOTE_UPDATE_REQUEST_REJECTED,
 
-    EXPENSE_ADD
+    EXPENSE_ADD,
+
+    POS_LOG,                    // Kredi kartı POS kaydı
+    BANKA_CIKIS                 // Kasadan bankaya para çıkışı (sadece admin)
 }

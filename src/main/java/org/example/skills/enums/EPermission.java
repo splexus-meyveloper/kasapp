@@ -6,6 +6,6 @@ public enum EPermission {
     SENET,
     MASRAF,
     KREDILER,
-    KULLANICI_YONETIMI
+    KULLANICI_YONETIMI,
+    BANKA
 }
-

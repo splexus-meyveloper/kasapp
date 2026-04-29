@@ -1,11 +1,24 @@
 package org.example.skills.enums;
 
 public enum ExpenseType {
+    ELEKTRIK,
+    SU,
+    ILETISIM,
+    KARGO_NAKLIYE,
+    ARAC_GIDERLERI,
+    IS_YERI,
+    ATOLYE,
     YEMEK,
     MARKET,
+    KIRTASIYE,
+    SEYAHAT,
+    NILUFERKÖY,
+    ORTAK_GIDER,
+    ALI_ALTIKARDESLER,
+    ATINC_ALTIKARDESLER,
+    KIVANC_ALTIKARDESLER,
+    PERVIN_ALTIKARDESLER,
     CEZA,
-    ILETISIM,
-    KARGO,
     YAKIT,
     DIGER
 }

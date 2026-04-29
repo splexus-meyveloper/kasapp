@@ -48,6 +48,8 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
+
+    implementation 'com.itextpdf:itext7-core:7.2.5'
 }
 
 test {

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,4 +62,15 @@ public interface CheckRepository extends JpaRepository<Check,Long> {
       AND c.dueDate <= :end
 """)
     BigDecimal sumByDateRange(Long companyId, LocalDate start, LocalDate end);
+
+    @Query("""
+        SELECT COALESCE(SUM(c.amount), 0)
+        FROM Check c
+        WHERE c.companyId = :companyId
+          AND c.createdBy = :userId
+          AND c.createdAt >= :start
+          AND c.createdAt < :end
+    """)
+    BigDecimal sumTodayByUser(Long companyId, Long userId,
+                              LocalDateTime start, LocalDateTime end);
 }

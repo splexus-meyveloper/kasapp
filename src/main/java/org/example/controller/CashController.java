@@ -7,6 +7,7 @@ import org.example.dto.response.PageResponse;
 import org.example.entity.CashTransaction;
 import org.example.security.CustomUserDetails;
 import org.example.service.CashService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.example.skills.enums.ERole;
@@ -52,6 +53,20 @@ public class CashController {
                 ERole.valueOf(user.getRole()),
                 page,
                 size
+        );
+    }
+
+    /** Kasadan bankaya para çıkışı — sadece admin, kasa bakiyesinden düşer */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/bank-withdrawal")
+    public void bankWithdrawal(
+            @Valid @RequestBody CashRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        service.addExpense(
+                request.amount(),
+                "[BANKAYA YATIRMA] " + request.description(),
+                user.getId(),
+                user.getCompanyId()
         );
     }
 }

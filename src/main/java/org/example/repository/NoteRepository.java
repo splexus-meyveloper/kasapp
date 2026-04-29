@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,4 +50,15 @@ public interface NoteRepository
     ORDER BY n.dueDate ASC
 """)
     List<Note> findUpcomingDue(Long companyId, LocalDate today, LocalDate limitDate);
+
+    @Query("""
+        SELECT COALESCE(SUM(n.amount), 0)
+        FROM Note n
+        WHERE n.companyId = :companyId
+          AND n.createdBy = :userId
+          AND n.createdAt >= :start
+          AND n.createdAt < :end
+    """)
+    BigDecimal sumTodayByUser(Long companyId, Long userId,
+                              LocalDateTime start, LocalDateTime end);
 }
