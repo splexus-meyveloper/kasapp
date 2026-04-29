@@ -76,6 +76,22 @@ public enum BankaIslemKodu {
     KREDI_ZK_98                 ("300.09.023", "Ziraat Katılım 1.400.000 (98)",             Direction.IN),
 
     // ── GİDER (OUT) ───────────────────────────────────────────────
+
+    // Kredi Kartı Borçları
+    KK_BORC_HALK_6796           ("309.01.001", "**6796 NOLU HALK KK (3818)",                Direction.OUT),
+    KK_BORC_GARANTI_1152        ("309.02.001", "**1152 NOLU GB KK",                         Direction.OUT),
+    KK_BORC_GARANTI_1160        ("309.02.002", "**1160 NOLU GB KK",                         Direction.OUT),
+    KK_BORC_GARANTI_9314        ("309.02.003", "**9314 NOLU GB KK",                         Direction.OUT),
+    KK_BORC_GARANTI_4017        ("309.02.004", "**4017 NOLU GB KK",                         Direction.OUT),
+    KK_BORC_ISBANK_9048         ("309.03.001", "**9048 NOLU İŞ KK",                         Direction.OUT),
+    KK_BORC_ISBANK_4291         ("309.03.002", "**4291 NOLU İŞ KK",                         Direction.OUT),
+    KK_BORC_ISBANK_6760         ("309.03.003", "**6760 NOLU İŞ KK",                         Direction.OUT),
+    KK_BORC_TEB_4730            ("309.04.003", "**4730 NOLU TEB KK",                        Direction.OUT),
+    KK_BORC_YKB_5547            ("309.05.001", "**5547 NOLU YKB K.K",                       Direction.OUT),
+    KK_BORC_YKB_6753            ("309.05.002", "**6753 NOLU YKB K.K",                       Direction.OUT),
+    KK_BORC_ZIRAAT_5858         ("309.06.003", "**5858 NOLU ZİRAAT KK",                     Direction.OUT),
+    KK_BORC_ZIRAAT_8553         ("309.06.004", "**8553 NOLU ZİRAAT KK",                     Direction.OUT),
+
     BANKA_MASRAFLARI            ("770.01.010", "Banka Masrafları",                          Direction.OUT),
     VERGI_VE_HARCLAR            ("770.01.019", "Vergi ve Harçlar",                          Direction.OUT),
     FINANSMAN_GIDERLERI         ("780.01.001", "Finansman Giderleri",                       Direction.OUT),

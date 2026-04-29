@@ -3,6 +3,7 @@ package org.example.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.skills.enums.Banka;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -36,8 +37,10 @@ public class Loan {
     private BigDecimal interestRate;
 
     // Toplam geri ödenecek tutar (anapara + faiz)
-    @Column(nullable = false)
-    private BigDecimal totalPayable;
+    @Column(nullable = false, precision = 38, scale = 2, columnDefinition = "numeric(38,2)")
+    @ColumnDefault("0")
+    @Builder.Default
+    private BigDecimal totalPayable = BigDecimal.ZERO;
 
     // Kalan borç
     @Column(nullable = false)
@@ -56,6 +59,7 @@ public class Loan {
     private LocalDate startDate;
     private LocalDate endDate;
 
+    @Builder.Default
     private boolean active = true;
     private LocalDateTime createdAt;
     private Integer paymentDay;
