@@ -33,6 +33,8 @@ public class Note {
 
     private String description;
 
+    private String endorsedTo;   // Ciro edilen firma
+
     @Enumerated(EnumType.STRING)
     private NoteStatus status;
 

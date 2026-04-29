@@ -58,6 +58,15 @@ public class SecurityConfig {
                         )
                 )
                 .authorizeHttpRequests(auth -> {
+
+                    auth.requestMatchers(
+                            "/",
+                            "/*",
+                            "/**/*.html",
+                            "/assets/**",
+                            "/pages/**"
+                    ).permitAll();
+
                     auth.requestMatchers("/api/auth/**").permitAll();
                     auth.requestMatchers("/ws/**").permitAll();
 

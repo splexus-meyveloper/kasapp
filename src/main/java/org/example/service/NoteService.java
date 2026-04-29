@@ -82,6 +82,7 @@ public class NoteService {
         return note;
     }
 
+    @Audit(action = AuditAction.NOTE_ENDORSE)
     @Transactional
     public Note endorse(NoteExitRequest req,
                         Long userId,
@@ -96,6 +97,14 @@ public class NoteService {
         }
 
         note.setStatus(NoteStatus.CIRO_EDILDI);
+
+        // Ciro edilen firma ve açıklamayı kaydet
+        if (req.endorsedTo() != null && !req.endorsedTo().isBlank()) {
+            note.setEndorsedTo(req.endorsedTo());
+        }
+        if (req.description() != null && !req.description().isBlank()) {
+            note.setDescription(req.description());
+        }
 
         realtimeEventService.publish("SENET", "NOTE_ENDORSE", companyId, note.getId());
         return note;
