@@ -44,18 +44,16 @@ public class SecurityConfig {
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives(
                                         "default-src 'self'; " +
-                                                "script-src 'self'; " +
-                                                "style-src 'self' 'unsafe-inline'; " +
+                                                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
+                                                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
+                                                "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; " +
                                                 "img-src 'self' data:; " +
-                                                "connect-src 'self' ws: wss:; " +
+                                                "connect-src 'self' ws: wss: https://cdn.jsdelivr.net; " +
                                                 "frame-ancestors 'none';"
                                 )
                         )
                         .referrerPolicy(rp -> rp
                                 .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
-                        )
-                        .permissionsPolicy(pp -> pp
-                                .policy("camera=(), microphone=(), geolocation=()")
                         )
                 )
                 .authorizeHttpRequests(auth -> {

@@ -27,15 +27,19 @@ public class ExpenseService {
     @Audit(action = AuditAction.EXPENSE_ADD)
     @Transactional
     public void addExpense(AddExpenseRequest req, Long userId, Long companyId) {
+        String aciklama = normalizeDescription(req.description());
+
         ExpensePaymentMethod paymentMethod = req.paymentMethod() == null
                 ? ExpensePaymentMethod.CASH
                 : req.paymentMethod();
 
-        if (req.expenseType() == ExpenseType.ARAC_GIDERLERI && req.aracPlaka() == null) {
-            throw new IllegalArgumentException("Arac gideri icin plaka secilmelidir.");
+        if (req.expenseType() == ExpenseType.ARAC_GIDERLERI) {
+            if (req.aracPlaka() == null) {
+                throw new IllegalArgumentException("Arac gideri icin plaka secilmelidir.");
+            }
+            validateVehicleExpenseDescription(aciklama, req.aracPlaka().getLabel(), req.aracPlaka().name());
         }
 
-        String aciklama = req.description();
         if (req.aracPlaka() != null) {
             aciklama = "[" + req.aracPlaka().getLabel() + "] " + aciklama;
         }
@@ -61,6 +65,32 @@ public class ExpenseService {
                     userId,
                     companyId
             );
+        }
+    }
+
+    private String normalizeDescription(String description) {
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException("Aciklama bos olamaz.");
+        }
+
+        String normalized = description.trim();
+        if (normalized.equalsIgnoreCase("null") || normalized.equalsIgnoreCase("undefined")) {
+            throw new IllegalArgumentException("Aciklama bos olamaz.");
+        }
+
+        return normalized;
+    }
+
+    private void validateVehicleExpenseDescription(String description, String plateLabel, String plateCode) {
+        String normalized = description.replaceAll("\\s+", " ").trim();
+        String normalizedPlateLabel = plateLabel.replaceAll("\\s+", " ").trim();
+        String normalizedPlateCode = plateCode.replace('_', ' ').replaceFirst("^P ", "").trim();
+
+        if (normalized.equalsIgnoreCase(normalizedPlateLabel)
+                || normalized.equalsIgnoreCase(normalizedPlateCode)
+                || normalized.equalsIgnoreCase("arac gideri")
+                || normalized.equalsIgnoreCase("araç gideri")) {
+            throw new IllegalArgumentException("Arac gideri icin aciklama girilmelidir.");
         }
     }
 

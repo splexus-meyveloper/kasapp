@@ -8,7 +8,7 @@ public record AdminCreateUserRequest(
         @NotBlank(message = "Kullanıcı adı boş olamaz")
         @Size(min = 3, max = 50, message = "Kullanıcı adı 3-50 karakter arasında olmalıdır")
         @Pattern(
-                regexp = "^[a-zA-Z0-9_\\.]+$",
+                regexp = "^[a-zA-Z0-9_\\.çÇğĞıİöÖşŞüÜ]+$",
                 message = "Kullanıcı adı sadece harf, rakam, nokta ve alt çizgi içerebilir"
         )
         String username,
@@ -21,22 +21,27 @@ public record AdminCreateUserRequest(
         )
         String password,
 
+        @NotBlank(message = "Ad bos olamaz")
         @Size(max = 50, message = "Ad 50 karakterden uzun olamaz")
         String name,
 
+        @NotBlank(message = "Soyad bos olamaz")
         @Size(max = 50, message = "Soyad 50 karakterden uzun olamaz")
         String surname,
 
+        @NotBlank(message = "Email bos olamaz")
         @Email(message = "Geçerli bir email adresi giriniz")
         @Size(max = 150, message = "Email 150 karakterden uzun olamaz")
         String email,
 
+        @NotBlank(message = "Telefon bos olamaz")
         @Pattern(
                 regexp = "^[0-9+\\-\\s]{7,20}$",
                 message = "Geçerli bir telefon numarası giriniz"
         )
         String phone,
 
+        @NotNull(message = "Rol secilmelidir")
         ERole role
 
 ) {}

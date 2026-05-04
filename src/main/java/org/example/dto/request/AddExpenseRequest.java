@@ -1,5 +1,6 @@
 package org.example.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -20,6 +21,7 @@ public record AddExpenseRequest(
         @NotNull(message = "Masraf turu secilmelidir")
         ExpenseType expenseType,
 
+        @NotNull(message = "Odeme yontemi secilmelidir")
         ExpensePaymentMethod paymentMethod,
 
         @NotNull
@@ -28,10 +30,12 @@ public record AddExpenseRequest(
         @AuditAmount
         BigDecimal amount,
 
-        @NotBlank
+        @JsonAlias({"aciklama", "açıklama"})
+        @NotBlank(message = "Aciklama bos olamaz")
         @Size(max = 255)
         @AuditDesc
         String description,
 
+        @JsonAlias({"plaka", "arac_plaka"})
         AracPlaka aracPlaka
 ) {}

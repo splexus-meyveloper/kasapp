@@ -1,6 +1,8 @@
 package org.example.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +16,17 @@ import java.util.List;
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    @ResponseBody
+    public ResponseEntity<ErrorMessage> accessDeniedExceptionHandler(Exception exception) {
+        log.warn("ACCESS DENIED: {}", exception.getMessage());
+        return createResponseEntity(
+                ErrorType.ACCESS_DENIED,
+                HttpStatus.FORBIDDEN,
+                List.of("Bu islem icin yetkiniz yok.")
+        );
+    }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorMessage> runtimeExceptionHandler(RuntimeException exception) {
@@ -43,6 +56,18 @@ public class GlobalExceptionHandler {
         });
 
         return createResponseEntity(ErrorType.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, fieldErrors);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseBody
+    public ResponseEntity<ErrorMessage> illegalArgumentExceptionHandler(
+            IllegalArgumentException exception) {
+
+        return createResponseEntity(
+                ErrorType.VALIDATION_ERROR,
+                HttpStatus.BAD_REQUEST,
+                List.of(exception.getMessage())
+        );
     }
 
     public ResponseEntity<ErrorMessage> createResponseEntity(ErrorType errorType,

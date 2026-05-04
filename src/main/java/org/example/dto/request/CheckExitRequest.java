@@ -18,6 +18,7 @@ public record CheckExitRequest(
         @NotNull
         LocalDate dueDate,
 
+        @NotBlank(message = "Aciklama bos olamaz")
         @Size(max=255)
         @AuditDesc
         String description

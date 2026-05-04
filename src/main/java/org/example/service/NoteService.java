@@ -3,6 +3,7 @@ package org.example.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
+import org.example.dto.request.NoteEndorseRequest;
 import org.example.dto.request.NoteEntryRequest;
 import org.example.dto.request.NoteExitRequest;
 import org.example.dto.response.NoteListResponse;
@@ -10,6 +11,7 @@ import org.example.entity.Note;
 import org.example.repository.NoteRepository;
 import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.CashDirection;
+import org.example.skills.enums.CollectType;
 import org.example.skills.enums.NoteStatus;
 import org.springframework.stereotype.Service;
 
@@ -53,7 +55,7 @@ public class NoteService {
 
     @Audit(
             action = AuditAction.NOTE_COLLECT,
-            cash = CashDirection.IN
+            cash = CashDirection.NONE
     )
     @Transactional
     public Note collect(NoteExitRequest req,
@@ -69,14 +71,20 @@ public class NoteService {
         }
 
         note.setStatus(NoteStatus.TAHSIL_EDILDI);
-        note.setDescription("Senet Tahsil edildi " + note.getNoteNo());
+        CollectType collectType = req.collectType() == null ? CollectType.CASH : req.collectType();
+        String aciklama = collectType == CollectType.BANK
+                ? "Senet bankaya tahsil edildi " + note.getNoteNo()
+                : "Senet kasaya tahsil edildi " + note.getNoteNo();
+        note.setDescription(aciklama);
 
-        cashService.addIncomeFromModule(
-                note.getAmount(),
-                "Senet Tahsil edildi " + note.getNoteNo(),
-                userId,
-                companyId
-        );
+        if (collectType == CollectType.CASH) {
+            cashService.addIncomeFromModule(
+                    note.getAmount(),
+                    aciklama,
+                    userId,
+                    companyId
+            );
+        }
 
         realtimeEventService.publish("SENET", "NOTE_COLLECT", companyId, note.getId());
         return note;
@@ -84,7 +92,7 @@ public class NoteService {
 
     @Audit(action = AuditAction.NOTE_ENDORSE)
     @Transactional
-    public Note endorse(NoteExitRequest req,
+    public Note endorse(NoteEndorseRequest req,
                         Long userId,
                         Long companyId) {
 

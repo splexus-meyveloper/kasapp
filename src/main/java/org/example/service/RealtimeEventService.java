@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.example.websocket.RealtimeEvent;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 
@@ -22,13 +24,27 @@ public class RealtimeEventService {
                 LocalDateTime.now()
         );
 
-        messagingTemplate.convertAndSend(
-                "/topic/company-" + companyId,
-                event
-        );
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send(event);
+                }
+            });
+            return;
+        }
+
+        send(event);
     }
 
     public void publish(String module, Long companyId) {
         publish(module, "UPDATED", companyId, null);
+    }
+
+    private void send(RealtimeEvent event) {
+        messagingTemplate.convertAndSend(
+                "/topic/company-" + event.companyId(),
+                event
+        );
     }
 }

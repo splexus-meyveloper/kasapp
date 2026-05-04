@@ -14,6 +14,7 @@ import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.CashDirection;
 import org.example.skills.enums.CheckStatus;
 import org.example.skills.enums.CheckType;
+import org.example.skills.enums.CollectType;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -60,7 +61,7 @@ public class CheckService {
 
     @Audit(
             action = AuditAction.CHECK_COLLECT,
-            cash = CashDirection.IN
+            cash = CashDirection.NONE
     )
     @Transactional
     public Check collect(CheckCollectRequest req,
@@ -76,14 +77,20 @@ public class CheckService {
         }
 
         check.setStatus(CheckStatus.TAHSIL_EDILDI);
-        check.setDescription("Cek Tahsil edildi " + check.getCheckNo());
+        CollectType collectType = req.collectType() == null ? CollectType.CASH : req.collectType();
+        String aciklama = collectType == CollectType.BANK
+                ? "Cek bankaya tahsil edildi " + check.getCheckNo()
+                : "Cek kasaya tahsil edildi " + check.getCheckNo();
+        check.setDescription(aciklama);
 
-        cashService.addIncomeFromModule(
-                check.getAmount(),
-                "Cek Tahsil edildi " + check.getCheckNo(),
-                userId,
-                companyId
-        );
+        if (collectType == CollectType.CASH) {
+            cashService.addIncomeFromModule(
+                    check.getAmount(),
+                    aciklama,
+                    userId,
+                    companyId
+            );
+        }
 
         realtimeEventService.publish("CEK", "CHECK_COLLECT", companyId, check.getId());
         return check;

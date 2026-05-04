@@ -11,6 +11,7 @@ import org.example.entity.Check;
 import org.example.security.CustomUserDetails;
 import org.example.service.CheckService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/checks")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('CEK') or hasRole('ADMIN')")
 public class CheckController {
 
     private final CheckService service;
@@ -77,7 +79,7 @@ public class CheckController {
     }
 
     @PostMapping("/paid")
-    public ResponseEntity<?> markAsPaid(@RequestBody CheckPaidRequest req,
+    public ResponseEntity<?> markAsPaid(@Valid @RequestBody CheckPaidRequest req,
                                         @AuthenticationPrincipal CustomUserDetails user){
 
         service.markAsPaid(

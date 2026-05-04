@@ -30,8 +30,10 @@ public class Expense {
     @Enumerated(EnumType.STRING)
     private ExpensePaymentMethod paymentMethod;
 
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
+    @Column(nullable = false, length = 255)
     private String description;
 
     private LocalDate expenseDate;
@@ -39,4 +41,19 @@ public class Expense {
     private LocalDateTime createdAt;
 
     private Long createdBy;
+
+    @PrePersist
+    @PreUpdate
+    private void validateRequiredFields() {
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException("Masraf aciklamasi bos olamaz.");
+        }
+
+        String normalized = description.trim();
+        if (normalized.equalsIgnoreCase("null") || normalized.equalsIgnoreCase("undefined")) {
+            throw new IllegalArgumentException("Masraf aciklamasi bos olamaz.");
+        }
+
+        description = normalized;
+    }
 }

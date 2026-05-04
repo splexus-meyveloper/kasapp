@@ -1,4 +1,9 @@
 package org.example.dto.request;
 
-public record GetProfileRequest(String token) {
+import jakarta.validation.constraints.NotBlank;
+
+public record GetProfileRequest(
+        @NotBlank(message = "Token bos olamaz")
+        String token
+) {
 }
