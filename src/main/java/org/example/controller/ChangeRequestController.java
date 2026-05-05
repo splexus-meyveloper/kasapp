@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.dto.request.CashUpdateRequestDto;
 import org.example.dto.request.CheckUpdateRequestDto;
 import org.example.dto.request.NoteUpdateRequestDto;
+import org.example.dto.request.PosUpdateRequestDto;
 import org.example.security.CustomUserDetails;
 import org.example.service.ChangeRequestService;
 import org.springframework.http.ResponseEntity;
@@ -18,14 +19,12 @@ public class ChangeRequestController {
 
     private final ChangeRequestService changeRequestService;
 
-    // CASH
     @PostMapping("/cash/{cashId}")
     public ResponseEntity<?> requestCashUpdate(
             @PathVariable Long cashId,
             @Valid @RequestBody CashUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
-
         changeRequestService.createCashUpdateRequest(
                 cashId,
                 dto,
@@ -33,17 +32,15 @@ public class ChangeRequestController {
                 user.getCompanyId()
         );
 
-        return ResponseEntity.ok("Talep başarıyla oluşturuldu");
+        return ResponseEntity.ok("Talep basariyla olusturuldu");
     }
 
-    // CHECK
     @PostMapping("/check/{checkId}")
     public ResponseEntity<?> requestCheckUpdate(
             @PathVariable Long checkId,
             @Valid @RequestBody CheckUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
-
         changeRequestService.createCheckUpdateRequest(
                 checkId,
                 dto,
@@ -51,17 +48,15 @@ public class ChangeRequestController {
                 user.getCompanyId()
         );
 
-        return ResponseEntity.ok("Çek düzenleme talebi oluşturuldu");
+        return ResponseEntity.ok("Cek duzenleme talebi olusturuldu");
     }
 
-    // NOTE
     @PostMapping("/note/{noteId}")
     public ResponseEntity<?> requestNoteUpdate(
             @PathVariable Long noteId,
             @Valid @RequestBody NoteUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
-
         changeRequestService.createNoteUpdateRequest(
                 noteId,
                 dto,
@@ -69,10 +64,25 @@ public class ChangeRequestController {
                 user.getCompanyId()
         );
 
-        return ResponseEntity.ok("Senet düzenleme talebi oluşturuldu");
+        return ResponseEntity.ok("Senet duzenleme talebi olusturuldu");
     }
 
-    // ADMIN → pending
+    @PostMapping("/pos/{posLogId}")
+    public ResponseEntity<?> requestPosUpdate(
+            @PathVariable Long posLogId,
+            @Valid @RequestBody PosUpdateRequestDto dto,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        changeRequestService.createPosUpdateRequest(
+                posLogId,
+                dto,
+                user.getId(),
+                user.getCompanyId()
+        );
+
+        return ResponseEntity.ok("POS duzenleme talebi olusturuldu");
+    }
+
     @GetMapping("/pending")
     public ResponseEntity<?> pending(
             @AuthenticationPrincipal CustomUserDetails user
@@ -82,29 +92,25 @@ public class ChangeRequestController {
         );
     }
 
-    // APPROVE
     @PostMapping("/{requestId}/approve")
     public ResponseEntity<?> approveRequest(
             @PathVariable Long requestId,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
-
         changeRequestService.approveRequest(
                 requestId,
                 user.getId(),
                 user.getCompanyId()
         );
 
-        return ResponseEntity.ok("Talep onaylandı");
+        return ResponseEntity.ok("Talep onaylandi");
     }
 
-    // REJECT
     @PostMapping("/{requestId}/reject")
     public ResponseEntity<?> rejectRequest(
             @PathVariable Long requestId,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
-
         changeRequestService.rejectRequest(
                 requestId,
                 user.getId()

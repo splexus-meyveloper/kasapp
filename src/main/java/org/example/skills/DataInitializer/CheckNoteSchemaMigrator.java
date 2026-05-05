@@ -1,0 +1,54 @@
+package org.example.skills.DataInitializer;
+
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.skills.enums.CheckStatus;
+import org.example.skills.enums.NoteStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class CheckNoteSchemaMigrator {
+
+    private final JdbcTemplate jdbcTemplate;
+
+    @PostConstruct
+    public void migrateCheckAndNoteStatusConstraints() {
+        try {
+            synchronizeEnumConstraint(
+                    "tbl_checks",
+                    "tbl_checks_status_check",
+                    "status",
+                    Arrays.stream(CheckStatus.values()).map(Enum::name).toArray(String[]::new)
+            );
+            synchronizeEnumConstraint(
+                    "tbl_notes",
+                    "tbl_notes_status_check",
+                    "status",
+                    Arrays.stream(NoteStatus.values()).map(Enum::name).toArray(String[]::new)
+            );
+            log.info("Check and note status check constraints synchronized.");
+        } catch (Exception e) {
+            log.warn("Check/note status constraint migration skipped: {}", e.getMessage());
+        }
+    }
+
+    private void synchronizeEnumConstraint(String tableName,
+                                           String constraintName,
+                                           String columnName,
+                                           String[] values) {
+        String allowed = Arrays.stream(values)
+                .map(v -> "'" + v + "'")
+                .collect(Collectors.joining(","));
+
+        jdbcTemplate.execute("ALTER TABLE " + tableName + " DROP CONSTRAINT IF EXISTS " + constraintName);
+        jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD CONSTRAINT " + constraintName
+                + " CHECK (" + columnName + " IN (" + allowed + "))");
+    }
+}

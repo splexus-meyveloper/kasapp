@@ -37,4 +37,9 @@ public class MyActivityDto {
 
     private String noteNo;
     private String debtor;
+
+    private String posType;
+    private String posTypeLabel;
+    private String terminal;
+    private String terminalLabel;
 }

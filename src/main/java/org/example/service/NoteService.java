@@ -66,15 +66,20 @@ public class NoteService {
                 .findByIdAndCompanyId(req.id(), companyId)
                 .orElseThrow(() -> new RuntimeException("Senet bulunamadi"));
 
-        if (note.getStatus() == NoteStatus.TAHSIL_EDILDI) {
-            throw new RuntimeException("Senet zaten tahsil edilmis");
+        if (note.getStatus() != NoteStatus.PORTFOYDE) {
+            throw new RuntimeException("Senet portfoyde degil");
         }
 
-        note.setStatus(NoteStatus.TAHSIL_EDILDI);
         CollectType collectType = req.collectType() == null ? CollectType.CASH : req.collectType();
-        String aciklama = collectType == CollectType.BANK
-                ? "Senet bankaya tahsil edildi " + note.getNoteNo()
-                : "Senet kasaya tahsil edildi " + note.getNoteNo();
+        note.setStatus(collectType == CollectType.COLLATERAL
+                ? NoteStatus.TEMINATA_CIKTI
+                : NoteStatus.TAHSIL_EDILDI);
+
+        String aciklama = switch (collectType) {
+            case BANK -> "Senet bankaya tahsil edildi " + note.getNoteNo();
+            case COLLATERAL -> "Senet teminata cikti " + note.getNoteNo();
+            case CASH -> "Senet kasaya tahsil edildi " + note.getNoteNo();
+        };
         note.setDescription(aciklama);
 
         if (collectType == CollectType.CASH) {

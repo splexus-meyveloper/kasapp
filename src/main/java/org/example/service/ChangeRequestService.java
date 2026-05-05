@@ -6,17 +6,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.dto.request.CashUpdateRequestDto;
 import org.example.dto.request.CheckUpdateRequestDto;
 import org.example.dto.request.NoteUpdateRequestDto;
+import org.example.dto.request.PosUpdateRequestDto;
 import org.example.dto.response.ChangeRequestResponseDto;
 import org.example.entity.CashTransaction;
 import org.example.entity.ChangeRequest;
 import org.example.entity.Note;
 import org.example.entity.Check;
+import org.example.entity.PosLog;
 import org.example.exception.ErrorType;
 import org.example.exception.KasappException;
 import org.example.repository.CashTransactionRepository;
 import org.example.repository.ChangeRequestRepository;
 import org.example.repository.CheckRepository;
 import org.example.repository.NoteRepository;
+import org.example.repository.PosLogRepository;
 import org.example.repository.UserRepository;
 import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.ChangeRequestAction;
@@ -40,6 +43,7 @@ public class ChangeRequestService {
     private final CashTransactionRepository cashTransactionRepository;
     private final CheckRepository checkRepository;
     private final NoteRepository noteRepository;
+    private final PosLogRepository posLogRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final AuditService auditService;
@@ -99,6 +103,27 @@ public class ChangeRequestService {
         );
 
         logAudit(AuditAction.NOTE_UPDATE_REQUEST_CREATED, "NOTE",
+                existing.getId(), userId, companyId, request);
+    }
+
+    @Transactional
+    public void createPosUpdateRequest(Long posLogId, PosUpdateRequestDto dto,
+                                       Long userId, Long companyId) {
+        PosLog existing = posLogRepository.findById(posLogId)
+                .orElseThrow(() -> new RuntimeException("POS hareketi bulunamadi"));
+
+        if (!existing.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.ACCESS_DENIED);
+
+        validatePosSelection(dto.posType(), dto.terminal());
+
+        ChangeRequest request = buildAndSaveRequest(
+                "POS", existing.getId(), companyId, userId,
+                existing, new PosUpdateRequestDto(dto.posType(), dto.terminal(),
+                        dto.amount(), dto.description(), dto.logDate())
+        );
+
+        logAudit(AuditAction.POS_UPDATE_REQUEST_CREATED, "POS",
                 existing.getId(), userId, companyId, request);
     }
 
@@ -274,6 +299,29 @@ public class ChangeRequestService {
                     existing.setDueDate(newData.dueDate());
                     noteRepository.save(existing);
                 }
+                case "POS" -> {
+                    PosLog existing = posLogRepository
+                            .findById(request.getEntityId())
+                            .orElseThrow(() -> new RuntimeException("POS hareketi bulunamadi"));
+
+                    if (!existing.getCompanyId().equals(companyId))
+                        throw new KasappException(ErrorType.ACCESS_DENIED);
+
+                    PosUpdateRequestDto newData = objectMapper.readValue(
+                            request.getNewData(), PosUpdateRequestDto.class);
+
+                    validatePosSelection(newData.posType(), newData.terminal());
+
+                    existing.setPosType(newData.posType());
+                    existing.setTerminal(newData.terminal());
+                    existing.setAmount(newData.amount());
+                    existing.setDescription(newData.description());
+                    if (newData.logDate() != null) {
+                        existing.setLogDate(newData.logDate());
+                    }
+
+                    posLogRepository.save(existing);
+                }
                 default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
             }
         } catch (KasappException e) {
@@ -311,8 +359,19 @@ public class ChangeRequestService {
             case "CASH"  -> AuditAction.CASH_UPDATE_REQUEST_APPROVED;
             case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_APPROVED;
             case "NOTE"  -> AuditAction.NOTE_UPDATE_REQUEST_APPROVED;
+            case "POS"   -> AuditAction.POS_UPDATE_REQUEST_APPROVED;
             default      -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         };
+    }
+
+    private void validatePosSelection(org.example.skills.enums.PosType posType,
+                                      org.example.skills.enums.PosTerminal terminal) {
+        if (posType == null || terminal == null) {
+            throw new IllegalArgumentException("POS tipi ve terminal secilmelidir.");
+        }
+        if (terminal.getPosType() != posType) {
+            throw new IllegalArgumentException("Secilen terminal bu POS tipine ait degil.");
+        }
     }
 
     private AuditAction resolveRejectAction(String entityType) {
@@ -320,6 +379,7 @@ public class ChangeRequestService {
             case "CASH"  -> AuditAction.CASH_UPDATE_REQUEST_REJECTED;
             case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_REJECTED;
             case "NOTE"  -> AuditAction.NOTE_UPDATE_REQUEST_REJECTED;
+            case "POS"   -> AuditAction.POS_UPDATE_REQUEST_REJECTED;
             default      -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         };
     }

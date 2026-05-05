@@ -17,10 +17,13 @@ import org.example.entity.AuditLog;
 import org.example.entity.ChangeRequest;
 import org.example.entity.Check;
 import org.example.entity.Note;
+import org.example.entity.PosLog;
 import org.example.repository.AuditLogRepository;
 import org.example.repository.ChangeRequestRepository;
 import org.example.repository.CheckRepository;
 import org.example.repository.NoteRepository;
+import org.example.repository.PosLogRepository;
+import org.example.skills.enums.PosType;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +45,7 @@ public class MyActivityService {
     private final ChangeRequestRepository changeRepo;
     private final CheckRepository         checkRepository;
     private final NoteRepository          noteRepository;
+    private final PosLogRepository        posLogRepository;
 
     // ── Liste (filtreli) ──────────────────────────────────────────
     public List<MyActivityDto> getMyActivities(Long userId, Long companyId,
@@ -62,6 +66,10 @@ public class MyActivityService {
         List<MyActivityDto> result = new ArrayList<>();
 
         for (AuditLog log : audits) {
+            if ("POS_LOG".equals(log.getAction())) {
+                continue;
+            }
+
             MyActivityDto.MyActivityDtoBuilder builder = MyActivityDto.builder()
                     .source("AUDIT")
                     .action(log.getAction())
@@ -79,6 +87,13 @@ public class MyActivityService {
 
             enrichEntityFields(builder, log.getEntityType(), log.getEntityId(), companyId);
             result.add(builder.build());
+        }
+
+        if (action == null || "POS_LOG".equals(action)) {
+            findMyPosLogs(companyId, userId, start, end, PageRequest.of(page, safeSize))
+                    .stream()
+                    .map(this::toPosActivity)
+                    .forEach(result::add);
         }
 
         // Filtre yoksa change request'leri de ekle
@@ -222,6 +237,19 @@ public class MyActivityService {
             noteRepository.findByIdAndCompanyId(entityId, companyId).ifPresent(n ->
                     builder.noteNo(n.getNoteNo())
                             .dueDate(n.getDueDate()));
+            return;
+        }
+
+        if ("POS".equalsIgnoreCase(entityType)) {
+            posLogRepository.findByIdAndCompanyId(entityId, companyId).ifPresent(pos ->
+                    builder.amount(pos.getAmount())
+                            .description(pos.getDescription())
+                            .date(pos.getLogDate())
+                            .posType(pos.getPosType() != null ? pos.getPosType().name() : null)
+                            .posTypeLabel(posTypeLabel(pos.getPosType()))
+                            .terminal(pos.getTerminal() != null ? pos.getTerminal().name() : null)
+                            .terminalLabel(pos.getTerminal() != null ? pos.getTerminal().getLabel() : null)
+                            .paymentMethod("CREDIT_CARD"));
         }
     }
 
@@ -240,6 +268,54 @@ public class MyActivityService {
             case "POS_LOG"          -> "POS İşlemi";
             case "BANKA_CIKIS"      -> "Bankaya Para Yatırma";
             default                 -> action;
+        };
+    }
+
+    private MyActivityDto toPosActivity(PosLog pos) {
+        return MyActivityDto.builder()
+                .source("POS_LOG")
+                .action("POS_LOG")
+                .actionLabel("POS Islemi")
+                .amount(pos.getAmount())
+                .description(pos.getDescription())
+                .status("COMPLETED")
+                .direction("NONE")
+                .date(pos.getLogDate())
+                .entityId(pos.getId())
+                .entityType("POS")
+                .posType(pos.getPosType() != null ? pos.getPosType().name() : null)
+                .posTypeLabel(posTypeLabel(pos.getPosType()))
+                .terminal(pos.getTerminal() != null ? pos.getTerminal().name() : null)
+                .terminalLabel(pos.getTerminal() != null ? pos.getTerminal().getLabel() : null)
+                .paymentMethod("CREDIT_CARD")
+                .build();
+    }
+
+    private List<PosLog> findMyPosLogs(Long companyId, Long userId,
+                                       LocalDateTime start, LocalDateTime end,
+                                       PageRequest pageable) {
+        if (start != null && end != null) {
+            return posLogRepository.findByCompanyIdAndUserIdAndLogDateGreaterThanEqualAndLogDateLessThanOrderByLogDateDesc(
+                    companyId, userId, start, end, pageable);
+        }
+        if (start != null) {
+            return posLogRepository.findByCompanyIdAndUserIdAndLogDateGreaterThanEqualOrderByLogDateDesc(
+                    companyId, userId, start, pageable);
+        }
+        if (end != null) {
+            return posLogRepository.findByCompanyIdAndUserIdAndLogDateLessThanOrderByLogDateDesc(
+                    companyId, userId, end, pageable);
+        }
+        return posLogRepository.findByCompanyIdAndUserIdOrderByLogDateDesc(
+                companyId, userId, pageable);
+    }
+
+    private String posTypeLabel(PosType posType) {
+        if (posType == null) return null;
+        return switch (posType) {
+            case ALTIKARDESLER_POS -> "Altikardesler POS";
+            case TEDARIKCI_POS -> "Tedarikci POS";
+            case YAZARKASA_POS -> "Yazarkasa POS";
         };
     }
 

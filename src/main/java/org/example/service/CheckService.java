@@ -76,11 +76,16 @@ public class CheckService {
             throw new RuntimeException("Cek portfoyde degil");
         }
 
-        check.setStatus(CheckStatus.TAHSIL_EDILDI);
         CollectType collectType = req.collectType() == null ? CollectType.CASH : req.collectType();
-        String aciklama = collectType == CollectType.BANK
-                ? "Cek bankaya tahsil edildi " + check.getCheckNo()
-                : "Cek kasaya tahsil edildi " + check.getCheckNo();
+        check.setStatus(collectType == CollectType.COLLATERAL
+                ? CheckStatus.TEMINATA_CIKTI
+                : CheckStatus.TAHSIL_EDILDI);
+
+        String aciklama = switch (collectType) {
+            case BANK -> "Cek bankaya tahsil edildi " + check.getCheckNo();
+            case COLLATERAL -> "Cek teminata cikti " + check.getCheckNo();
+            case CASH -> "Cek kasaya tahsil edildi " + check.getCheckNo();
+        };
         check.setDescription(aciklama);
 
         if (collectType == CollectType.CASH) {

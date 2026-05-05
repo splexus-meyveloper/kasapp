@@ -150,11 +150,27 @@ public class AuditAspect {
                     amount = bd;
                 }
             } catch (Exception ignored) {}
+
+            try {
+                Method m = result.getClass().getMethod("amount");
+                Object val = m.invoke(result);
+                if (val instanceof BigDecimal bd) {
+                    amount = bd;
+                }
+            } catch (Exception ignored) {}
         }
 
         if (description == null && result != null) {
             try {
                 Method m = result.getClass().getMethod("getDescription");
+                Object val = m.invoke(result);
+                if (val instanceof String s) {
+                    description = s;
+                }
+            } catch (Exception ignored) {}
+
+            try {
+                Method m = result.getClass().getMethod("description");
                 Object val = m.invoke(result);
                 if (val instanceof String s) {
                     description = s;
@@ -199,6 +215,7 @@ public class AuditAspect {
         if (className.contains("Note"))    return "NOTE";
         if (className.contains("Loan"))    return "LOAN";
         if (className.contains("Expense")) return "EXPENSE";
+        if (className.contains("Pos"))     return "POS";
 
         return "UNKNOWN";
     }
@@ -208,6 +225,13 @@ public class AuditAspect {
 
         try {
             Method m = result.getClass().getMethod("getId");
+            Object val = m.invoke(result);
+            if (val instanceof Long id)
+                return id;
+        } catch (Exception ignored) {}
+
+        try {
+            Method m = result.getClass().getMethod("id");
             Object val = m.invoke(result);
             if (val instanceof Long id)
                 return id;

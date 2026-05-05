@@ -20,5 +20,7 @@ public enum ExpenseType {
     PERVIN_ALTIKARDESLER,
     CEZA,
     YAKIT,
+    VERGI_ODEMESI,
+    KIRA,
     DIGER
 }

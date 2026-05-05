@@ -59,7 +59,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
 
                     auth.requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll();
-                    auth.requestMatchers("/", "/index.html", "/assets/**", "/pages/**").permitAll();
+                    auth.requestMatchers("/", "/*.html", "/assets/**", "/pages/**", "/favicon.ico").permitAll();
 
                     auth.requestMatchers("/api/auth/**").permitAll();
                     auth.requestMatchers("/ws/**").permitAll();

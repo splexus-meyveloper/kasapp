@@ -4,17 +4,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.PosLogRequest;
 import org.example.dto.response.PosLogResponse;
-import org.example.dto.response.PosTerminalInfo;
+import org.example.dto.response.PosTerminalGroupResponse;
 import org.example.security.CustomUserDetails;
 import org.example.service.PosService;
-import org.example.skills.enums.PosType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pos")
@@ -25,7 +23,7 @@ public class PosController {
 
     @PreAuthorize("hasAuthority('KASA') or hasRole('ADMIN')")
     @GetMapping("/terminals")
-    public Map<PosType, List<PosTerminalInfo>> getTerminals() {
+    public List<PosTerminalGroupResponse> getTerminals() {
         return service.getTerminals();
     }
 
@@ -45,6 +43,12 @@ public class PosController {
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return service.getLogs(user.getCompanyId(), page, size);
+        return service.getLogs(
+                user.getCompanyId(),
+                user.getId(),
+                "ADMIN".equalsIgnoreCase(user.getRole()),
+                page,
+                size
+        );
     }
 }

@@ -1,13 +1,16 @@
 package org.example.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.audit.Audit;
 import org.example.dto.request.PosLogRequest;
+import org.example.dto.response.PosTerminalGroupResponse;
 import org.example.dto.response.PosLogResponse;
-import org.example.dto.response.PosTerminalInfo;
+import org.example.dto.response.PosTerminalOption;
 import org.example.entity.PosLog;
 import org.example.entity.User;
 import org.example.repository.PosLogRepository;
 import org.example.repository.UserRepository;
+import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.PosTerminal;
 import org.example.skills.enums.PosType;
 import org.springframework.data.domain.PageRequest;
@@ -18,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,23 +29,30 @@ import java.util.stream.Collectors;
 public class PosService {
 
     private final PosLogRepository posLogRepository;
-    private final UserRepository   userRepository;
+    private final UserRepository userRepository;
 
-    // ── Terminal listelerini döndür (frontend için) ────────────────
-    public Map<PosType, List<PosTerminalInfo>> getTerminals() {
+    public List<PosTerminalGroupResponse> getTerminals() {
         return Arrays.stream(PosTerminal.values())
-                .map(t -> new PosTerminalInfo(t, t.getLabel(), t.getPosType()))
-                .collect(Collectors.groupingBy(PosTerminalInfo::posType));
+                .collect(Collectors.groupingBy(PosTerminal::getPosType))
+                .entrySet()
+                .stream()
+                .sorted(Comparator.comparing(entry -> entry.getKey().name()))
+                .map(entry -> new PosTerminalGroupResponse(
+                        entry.getKey(),
+                        entry.getValue()
+                                .stream()
+                                .map(t -> new PosTerminalOption(t, t.getLabel()))
+                                .toList()
+                ))
+                .toList();
     }
 
-    // ── POS kaydı oluştur ─────────────────────────────────────────
+    @Audit(action = AuditAction.POS_LOG)
     @Transactional
     public PosLogResponse logPos(PosLogRequest req, Long userId, Long companyId) {
 
-        // Terminal, seçilen posType ile uyuşuyor mu?
         if (req.terminal().getPosType() != req.posType()) {
-            throw new IllegalArgumentException(
-                    "Seçilen terminal bu POS tipine ait değil.");
+            throw new IllegalArgumentException("Secilen terminal bu POS tipine ait degil.");
         }
 
         PosLog log = PosLog.builder()
@@ -59,17 +69,24 @@ public class PosService {
         return toResponse(log);
     }
 
-    // ── Log listesi (sadece admin) ────────────────────────────────
-    public List<PosLogResponse> getLogs(Long companyId, int page, int size) {
+    public List<PosLogResponse> getLogs(Long companyId, Long userId, boolean admin, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("logDate")));
+        if (!admin) {
+            return posLogRepository
+                    .findByCompanyIdAndUserIdOrderByLogDateDesc(companyId, userId, pageable)
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+
         return posLogRepository
                 .findByCompanyIdOrderByLogDateDesc(
                         companyId,
-                        PageRequest.of(page, size, Sort.by(Sort.Order.desc("logDate"))))
+                        pageable)
                 .map(this::toResponse)
                 .toList();
     }
 
-    // ── Yardımcı ─────────────────────────────────────────────────
     private PosLogResponse toResponse(PosLog log) {
         String username = userRepository.findById(log.getUserId())
                 .map(User::getUsername)
@@ -78,7 +95,7 @@ public class PosService {
         return new PosLogResponse(
                 log.getId(),
                 log.getPosType(),
-                log.getPosType() == PosType.ALTIKARDESLER_POS ? "Altıkardeşler POS" : "Tedarikçi POS",
+                posTypeLabel(log.getPosType()),
                 log.getTerminal(),
                 log.getTerminal().getLabel(),
                 log.getAmount(),
@@ -86,5 +103,13 @@ public class PosService {
                 username,
                 log.getLogDate()
         );
+    }
+
+    private String posTypeLabel(PosType posType) {
+        return switch (posType) {
+            case ALTIKARDESLER_POS -> "Altikardesler POS";
+            case TEDARIKCI_POS -> "Tedarikci POS";
+            case YAZARKASA_POS -> "Yazarkasa POS";
+        };
     }
 }
