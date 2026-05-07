@@ -110,10 +110,14 @@ public class ChangeRequestService {
     public void createPosUpdateRequest(Long posLogId, PosUpdateRequestDto dto,
                                        Long userId, Long companyId) {
         PosLog existing = posLogRepository.findById(posLogId)
-                .orElseThrow(() -> new RuntimeException("POS hareketi bulunamadi"));
+                .orElseThrow(() -> new KasappException(ErrorType.POS_LOG_NOT_FOUND));
 
         if (!existing.getCompanyId().equals(companyId))
             throw new KasappException(ErrorType.ACCESS_DENIED);
+
+        if (!existing.getUserId().equals(userId)) {
+            throw new KasappException(ErrorType.ACCESS_DENIED);
+        }
 
         validatePosSelection(dto.posType(), dto.terminal());
 
@@ -188,13 +192,16 @@ public class ChangeRequestService {
 
     // ── Red ───────────────────────────────────────────────────────────────
     @Transactional
-    public void rejectRequest(Long requestId, Long adminId) {
+    public void rejectRequest(Long requestId, Long adminId, Long companyId) {
 
         ChangeRequest request = changeRequestRepository.findById(requestId)
                 .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
 
         if (request.getStatus() != ChangeRequestStatus.PENDING)
             throw new KasappException(ErrorType.CHANGE_REQUEST_ALREADY_PROCESSED);
+
+        if (!request.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.CHANGE_REQUEST_ACCESS_DENIED);
 
         request.setStatus(ChangeRequestStatus.REJECTED);
         request.setApprovedBy(adminId);
@@ -212,6 +219,11 @@ public class ChangeRequestService {
                                               Long companyId, Long userId,
                                               Object oldObj, Object newObj) {
         try {
+            if (changeRequestRepository.existsByCompanyIdAndEntityTypeAndEntityIdAndStatus(
+                    companyId, entityType, entityId, ChangeRequestStatus.PENDING)) {
+                throw new KasappException(ErrorType.CHANGE_REQUEST_ALREADY_PENDING);
+            }
+
             String oldJson = objectMapper.writeValueAsString(oldObj);
             String newJson = objectMapper.writeValueAsString(newObj);
 
@@ -230,6 +242,9 @@ public class ChangeRequestService {
             return changeRequestRepository.save(request);
 
         } catch (Exception e) {
+            if (e instanceof KasappException ke) {
+                throw ke;
+            }
             log.error("ChangeRequest oluşturulurken JSON hatası. entityType={}, entityId={}",
                     entityType, entityId, e);
             throw new KasappException(ErrorType.CHANGE_REQUEST_CREATE_FAILED);
@@ -302,7 +317,7 @@ public class ChangeRequestService {
                 case "POS" -> {
                     PosLog existing = posLogRepository
                             .findById(request.getEntityId())
-                            .orElseThrow(() -> new RuntimeException("POS hareketi bulunamadi"));
+                            .orElseThrow(() -> new KasappException(ErrorType.POS_LOG_NOT_FOUND));
 
                     if (!existing.getCompanyId().equals(companyId))
                         throw new KasappException(ErrorType.ACCESS_DENIED);

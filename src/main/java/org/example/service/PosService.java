@@ -69,22 +69,51 @@ public class PosService {
         return toResponse(log);
     }
 
-    public List<PosLogResponse> getLogs(Long companyId, Long userId, boolean admin, int page, int size) {
+    public List<PosLogResponse> getLogs(Long companyId, Long userId, boolean includeAll,
+                                        LocalDateTime start, LocalDateTime end,
+                                        int page, int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("logDate")));
-        if (!admin) {
-            return posLogRepository
-                    .findByCompanyIdAndUserIdOrderByLogDateDesc(companyId, userId, pageable)
-                    .stream()
-                    .map(this::toResponse)
-                    .toList();
-        }
+        List<PosLog> logs = includeAll
+                ? findCompanyLogs(companyId, start, end, pageable)
+                : findUserLogs(companyId, userId, start, end, pageable);
 
-        return posLogRepository
-                .findByCompanyIdOrderByLogDateDesc(
-                        companyId,
-                        pageable)
+        return logs.stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private List<PosLog> findCompanyLogs(Long companyId, LocalDateTime start, LocalDateTime end,
+                                         PageRequest pageable) {
+        if (start != null && end != null) {
+            return posLogRepository.findByCompanyIdAndLogDateGreaterThanEqualAndLogDateLessThanOrderByLogDateDesc(
+                    companyId, start, end, pageable).getContent();
+        }
+        if (start != null) {
+            return posLogRepository.findByCompanyIdAndLogDateGreaterThanEqualOrderByLogDateDesc(
+                    companyId, start, pageable).getContent();
+        }
+        if (end != null) {
+            return posLogRepository.findByCompanyIdAndLogDateLessThanOrderByLogDateDesc(
+                    companyId, end, pageable).getContent();
+        }
+        return posLogRepository.findByCompanyIdOrderByLogDateDesc(companyId, pageable).getContent();
+    }
+
+    private List<PosLog> findUserLogs(Long companyId, Long userId, LocalDateTime start, LocalDateTime end,
+                                      PageRequest pageable) {
+        if (start != null && end != null) {
+            return posLogRepository.findByCompanyIdAndUserIdAndLogDateGreaterThanEqualAndLogDateLessThanOrderByLogDateDesc(
+                    companyId, userId, start, end, pageable);
+        }
+        if (start != null) {
+            return posLogRepository.findByCompanyIdAndUserIdAndLogDateGreaterThanEqualOrderByLogDateDesc(
+                    companyId, userId, start, pageable);
+        }
+        if (end != null) {
+            return posLogRepository.findByCompanyIdAndUserIdAndLogDateLessThanOrderByLogDateDesc(
+                    companyId, userId, end, pageable);
+        }
+        return posLogRepository.findByCompanyIdAndUserIdOrderByLogDateDesc(companyId, userId, pageable);
     }
 
     private PosLogResponse toResponse(PosLog log) {

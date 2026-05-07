@@ -106,8 +106,8 @@ public class MyActivityService {
             for (ChangeRequest req : requests) {
                 result.add(MyActivityDto.builder()
                         .source("CHANGE_REQUEST")
-                        .action("CASH_UPDATE_REQUEST")
-                        .actionLabel("Kasa Düzenleme Talebi")
+                        .action(req.getEntityType() + "_UPDATE_REQUEST")
+                        .actionLabel(changeRequestLabel(req.getEntityType()))
                         .status(req.getStatus() != null ? req.getStatus().name() : "UNKNOWN")
                         .direction("NONE")
                         .date(req.getRequestedAt() != null ? req.getRequestedAt() : LocalDateTime.now())
@@ -118,7 +118,9 @@ public class MyActivityService {
         }
 
         result.sort(Comparator.comparing(MyActivityDto::getDate).reversed());
-        return result;
+        return result.stream()
+                .limit(safeSize)
+                .toList();
     }
 
     // ── PDF export ────────────────────────────────────────────────
@@ -320,10 +322,21 @@ public class MyActivityService {
     }
 
     private String resolveDirection(String action) {
-        if (action == null) return "NONE";
-        if (action.contains("INCOME") || action.contains("IN")) return "IN";
-        if (action.contains("EXPENSE") || action.contains("OUT")) return "OUT";
-        return "NONE";
+        return switch (action) {
+            case "CASH_INCOME", "POS_LOG" -> "IN";
+            case "CASH_EXPENSE", "EXPENSE_ADD", "LOAN_INSTALLMENT", "CHECK_OUT" -> "OUT";
+            default -> "NONE";
+        };
+    }
+
+    private String changeRequestLabel(String entityType) {
+        return switch (entityType) {
+            case "CASH" -> "Kasa Duzenleme Talebi";
+            case "CHECK" -> "Cek Duzenleme Talebi";
+            case "NOTE" -> "Senet Duzenleme Talebi";
+            case "POS" -> "POS Duzenleme Talebi";
+            default -> "Duzenleme Talebi";
+        };
     }
 
     private String getPayloadValue(AuditLog log, String key) {

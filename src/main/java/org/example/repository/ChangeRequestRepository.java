@@ -16,4 +16,7 @@ public interface ChangeRequestRepository extends JpaRepository<ChangeRequest, Lo
     // Limitsiz olan sorgu kaldırıldı, yerine Pageable versiyonu eklendi
     Page<ChangeRequest> findByCompanyIdAndRequestedByOrderByRequestedAtDesc(
             Long companyId, Long requestedBy, Pageable pageable);
+
+    boolean existsByCompanyIdAndEntityTypeAndEntityIdAndStatus(
+            Long companyId, String entityType, Long entityId, ChangeRequestStatus status);
 }

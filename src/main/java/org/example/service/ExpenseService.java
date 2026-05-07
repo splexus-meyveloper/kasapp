@@ -26,7 +26,7 @@ public class ExpenseService {
 
     @Audit(action = AuditAction.EXPENSE_ADD)
     @Transactional
-    public void addExpense(AddExpenseRequest req, Long userId, Long companyId) {
+    public Expense addExpense(AddExpenseRequest req, Long userId, Long companyId) {
         String aciklama = normalizeDescription(req.description());
 
         ExpensePaymentMethod paymentMethod = req.paymentMethod() == null
@@ -66,6 +66,8 @@ public class ExpenseService {
                     companyId
             );
         }
+
+        return expense;
     }
 
     private String normalizeDescription(String description) {

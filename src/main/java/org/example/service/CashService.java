@@ -51,6 +51,7 @@ public class CashService {
         return tx;
     }
 
+    @Audit(action = AuditAction.CASH_EXPENSE, cash = CashDirection.OUT)
     @Transactional
     public CashTransaction addExpenseFromExpenseModule(@AuditAmount BigDecimal amount,
                                                        @AuditDesc String description,
@@ -60,6 +61,7 @@ public class CashService {
         return tx;
     }
 
+    @Audit(action = AuditAction.CASH_INCOME, cash = CashDirection.IN)
     @Transactional
     public CashTransaction addIncomeFromModule(@AuditAmount BigDecimal amount,
                                                @AuditDesc String description,

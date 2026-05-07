@@ -9,6 +9,7 @@ import org.example.dto.request.PosUpdateRequestDto;
 import org.example.security.CustomUserDetails;
 import org.example.service.ChangeRequestService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -84,6 +85,7 @@ public class ChangeRequestController {
     }
 
     @GetMapping("/pending")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> pending(
             @AuthenticationPrincipal CustomUserDetails user
     ) {
@@ -93,6 +95,7 @@ public class ChangeRequestController {
     }
 
     @PostMapping("/{requestId}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> approveRequest(
             @PathVariable Long requestId,
             @AuthenticationPrincipal CustomUserDetails user
@@ -107,13 +110,15 @@ public class ChangeRequestController {
     }
 
     @PostMapping("/{requestId}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> rejectRequest(
             @PathVariable Long requestId,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
         changeRequestService.rejectRequest(
                 requestId,
-                user.getId()
+                user.getId(),
+                user.getCompanyId()
         );
 
         return ResponseEntity.ok("Talep reddedildi");

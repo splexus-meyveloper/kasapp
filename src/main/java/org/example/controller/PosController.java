@@ -8,10 +8,12 @@ import org.example.dto.response.PosTerminalGroupResponse;
 import org.example.security.CustomUserDetails;
 import org.example.service.PosService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -42,11 +44,17 @@ public class PosController {
     public List<PosLogResponse> getLogs(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "false") boolean includeAll,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @AuthenticationPrincipal CustomUserDetails user) {
+        boolean canIncludeAll = includeAll && "ADMIN".equalsIgnoreCase(user.getRole());
         return service.getLogs(
                 user.getCompanyId(),
                 user.getId(),
-                "ADMIN".equalsIgnoreCase(user.getRole()),
+                canIncludeAll,
+                startDate != null ? startDate.atStartOfDay() : null,
+                endDate != null ? endDate.plusDays(1).atStartOfDay() : null,
                 page,
                 size
         );

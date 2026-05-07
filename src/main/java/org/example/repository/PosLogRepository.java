@@ -12,6 +12,15 @@ import java.util.Optional;
 public interface PosLogRepository extends JpaRepository<PosLog, Long> {
     Page<PosLog> findByCompanyIdOrderByLogDateDesc(Long companyId, Pageable pageable);
 
+    Page<PosLog> findByCompanyIdAndLogDateGreaterThanEqualOrderByLogDateDesc(
+            Long companyId, LocalDateTime start, Pageable pageable);
+
+    Page<PosLog> findByCompanyIdAndLogDateLessThanOrderByLogDateDesc(
+            Long companyId, LocalDateTime end, Pageable pageable);
+
+    Page<PosLog> findByCompanyIdAndLogDateGreaterThanEqualAndLogDateLessThanOrderByLogDateDesc(
+            Long companyId, LocalDateTime start, LocalDateTime end, Pageable pageable);
+
     Optional<PosLog> findByIdAndCompanyId(Long id, Long companyId);
 
     List<PosLog> findByCompanyIdAndUserIdOrderByLogDateDesc(

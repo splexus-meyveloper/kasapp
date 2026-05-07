@@ -47,12 +47,14 @@ public enum ErrorType {
     CHANGE_REQUEST_APPROVE_FAILED(8005, "Değişiklik talebi onaylanamadı.", HttpStatus.INTERNAL_SERVER_ERROR),
     CHANGE_REQUEST_REJECT_FAILED(8006, "Değişiklik talebi reddedilemedi.", HttpStatus.INTERNAL_SERVER_ERROR),
     UNSUPPORTED_ENTITY_TYPE(8007, "Desteklenmeyen kayıt türü.", HttpStatus.BAD_REQUEST),
+    CHANGE_REQUEST_ALREADY_PENDING(8008, "Bu kayit icin bekleyen bir duzenleme talebi zaten var.", HttpStatus.BAD_REQUEST),
 
     // ── Kayıt bulunamadı hataları ──────────────────────────────────────
     CASH_TRANSACTION_NOT_FOUND(5001, "Kasa hareketi bulunamadı.", HttpStatus.NOT_FOUND),
     CHECK_NOT_FOUND(5002, "Çek bulunamadı.", HttpStatus.NOT_FOUND),
     NOTE_NOT_FOUND(5003, "Senet bulunamadı.", HttpStatus.NOT_FOUND),
     ACCESS_DENIED(5004, "Bu kayıt üzerinde işlem yetkiniz yok.", HttpStatus.FORBIDDEN),
+    POS_LOG_NOT_FOUND(5005, "POS hareketi bulunamadi.", HttpStatus.NOT_FOUND),
 
     // ── Kredi hataları ────────────────────────────────────────────────
     LOAN_NOT_FOUND(9001, "Kredi bulunamadı.", HttpStatus.NOT_FOUND),
