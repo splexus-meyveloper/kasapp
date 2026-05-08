@@ -8,12 +8,12 @@ import org.example.dto.response.PosTerminalGroupResponse;
 import org.example.security.CustomUserDetails;
 import org.example.service.PosService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -45,18 +45,59 @@ public class PosController {
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(defaultValue = "false") boolean includeAll,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
             @AuthenticationPrincipal CustomUserDetails user) {
         boolean canIncludeAll = includeAll && "ADMIN".equalsIgnoreCase(user.getRole());
+        LocalDate resolvedStart = firstDate(startDate, dateFrom, start, from);
+        LocalDate resolvedEnd = firstDate(endDate, dateTo, end, to);
+
         return service.getLogs(
                 user.getCompanyId(),
                 user.getId(),
                 canIncludeAll,
-                startDate != null ? startDate.atStartOfDay() : null,
-                endDate != null ? endDate.plusDays(1).atStartOfDay() : null,
+                resolvedStart != null ? resolvedStart.atStartOfDay() : null,
+                resolvedEnd != null ? resolvedEnd.plusDays(1).atStartOfDay() : null,
                 page,
                 size
         );
+    }
+
+    private LocalDate firstDate(String... values) {
+        for (String value : values) {
+            LocalDate parsed = parseDate(value);
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
+    private LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        if (normalized.length() >= 10 && normalized.charAt(4) == '-') {
+            normalized = normalized.substring(0, 10);
+        }
+
+        try {
+            return LocalDate.parse(normalized, DateTimeFormatter.ISO_LOCAL_DATE);
+        } catch (Exception ignored) {
+        }
+
+        try {
+            return LocalDate.parse(normalized, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }
