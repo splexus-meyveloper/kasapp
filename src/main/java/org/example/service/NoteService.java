@@ -3,16 +3,11 @@ package org.example.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
-import org.example.dto.request.NoteEndorseRequest;
-import org.example.dto.request.NoteEntryRequest;
-import org.example.dto.request.NoteExitRequest;
+import org.example.dto.request.*;
 import org.example.dto.response.NoteListResponse;
 import org.example.entity.Note;
 import org.example.repository.NoteRepository;
-import org.example.skills.enums.AuditAction;
-import org.example.skills.enums.CashDirection;
-import org.example.skills.enums.CollectType;
-import org.example.skills.enums.NoteStatus;
+import org.example.skills.enums.*;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,16 +21,15 @@ public class NoteService {
     private final CashService cashService;
     private final RealtimeEventService realtimeEventService;
 
+    // ─────────────────────────────────────────────────────────
+    // SENET GİRİŞİ — kasa bakiyesine DOKUNMAZ
+    // ─────────────────────────────────────────────────────────
     @Audit(action = AuditAction.NOTE_IN)
     @Transactional
-    public Note noteIn(NoteEntryRequest req,
-                       Long userId,
-                       Long companyId) {
-
+    public Note noteIn(NoteEntryRequest req, Long userId, Long companyId) {
         if (repository.existsByNoteNoAndCompanyId(req.noteNo(), companyId)) {
-            throw new RuntimeException("Bu senet zaten kayitli");
+            throw new RuntimeException("Bu senet zaten kayıtlı");
         }
-
         Note note = Note.builder()
                 .noteNo(req.noteNo())
                 .dueDate(req.dueDate())
@@ -46,94 +40,169 @@ public class NoteService {
                 .createdBy(userId)
                 .createdAt(LocalDateTime.now())
                 .build();
-
         note = repository.save(note);
         realtimeEventService.publish("SENET", "NOTE_IN", companyId, note.getId());
-
         return note;
     }
 
-    @Audit(
-            action = AuditAction.NOTE_COLLECT,
-            cash = CashDirection.NONE
-    )
+    // ─────────────────────────────────────────────────────────
+    // TAHSİL
+    // ─────────────────────────────────────────────────────────
+    @Audit(action = AuditAction.NOTE_COLLECT, cash = CashDirection.NONE)
     @Transactional
-    public Note collect(NoteExitRequest req,
-                        Long userId,
-                        Long companyId) {
-
-        Note note = repository
-                .findByIdAndCompanyId(req.id(), companyId)
-                .orElseThrow(() -> new RuntimeException("Senet bulunamadi"));
-
+    public Note collect(NoteExitRequest req, Long userId, Long companyId) {
+        Note note = getNoteOrThrow(req.id(), companyId);
         if (note.getStatus() != NoteStatus.PORTFOYDE) {
-            throw new RuntimeException("Senet portfoyde degil");
+            throw new RuntimeException("Senet portföyde değil, tahsil edilemez");
         }
-
         CollectType collectType = req.collectType() == null ? CollectType.CASH : req.collectType();
         note.setStatus(collectType == CollectType.COLLATERAL
-                ? NoteStatus.TEMINATA_CIKTI
-                : NoteStatus.TAHSIL_EDILDI);
-
+                ? NoteStatus.TEMINATA_CIKTI : NoteStatus.TAHSIL_EDILDI);
         String aciklama = switch (collectType) {
-            case BANK -> "Senet bankaya tahsil edildi " + note.getNoteNo();
-            case COLLATERAL -> "Senet teminata cikti " + note.getNoteNo();
-            case CASH -> "Senet kasaya tahsil edildi " + note.getNoteNo();
+            case BANK       -> "Senet bankaya tahsil edildi • " + note.getNoteNo();
+            case COLLATERAL -> "Senet teminata çıktı • " + note.getNoteNo();
+            case CASH       -> "Senet kasaya tahsil edildi • " + note.getNoteNo();
         };
         note.setDescription(aciklama);
-
         if (collectType == CollectType.CASH) {
-            cashService.addIncomeFromModule(
-                    note.getAmount(),
-                    aciklama,
-                    userId,
-                    companyId
-            );
+            cashService.addIncomeFromModule(note.getAmount(), aciklama, userId, companyId);
         }
-
+        repository.save(note);
         realtimeEventService.publish("SENET", "NOTE_COLLECT", companyId, note.getId());
         return note;
     }
 
+    // ─────────────────────────────────────────────────────────
+    // CİRO
+    // ─────────────────────────────────────────────────────────
     @Audit(action = AuditAction.NOTE_ENDORSE)
     @Transactional
-    public Note endorse(NoteEndorseRequest req,
-                        Long userId,
-                        Long companyId) {
-
-        Note note = repository
-                .findByIdAndCompanyId(req.id(), companyId)
-                .orElseThrow(() -> new RuntimeException("Senet bulunamadi"));
-
-        if (note.getStatus() == NoteStatus.CIRO_EDILDI) {
-            throw new RuntimeException("Senet zaten ciro edilmis");
+    public Note endorse(NoteEndorseRequest req, Long userId, Long companyId) {
+        Note note = getNoteOrThrow(req.id(), companyId);
+        if (note.getStatus() != NoteStatus.PORTFOYDE) {
+            throw new RuntimeException("Senet portföyde değil, ciro edilemez");
         }
-
         note.setStatus(NoteStatus.CIRO_EDILDI);
-
-        // Ciro edilen firma ve açıklamayı kaydet
         if (req.endorsedTo() != null && !req.endorsedTo().isBlank()) {
             note.setEndorsedTo(req.endorsedTo());
         }
         if (req.description() != null && !req.description().isBlank()) {
             note.setDescription(req.description());
         }
-
+        repository.save(note);
         realtimeEventService.publish("SENET", "NOTE_ENDORSE", companyId, note.getId());
         return note;
     }
 
+    // ─────────────────────────────────────────────────────────
+    // İADE — tahsil/cirodan portföye geri dön
+    // ─────────────────────────────────────────────────────────
+    @Audit(action = AuditAction.NOTE_IADE)
+    @Transactional
+    public Note returnToPortfolio(CheckReturnRequest req, Long userId, Long companyId) {
+        Note note = getNoteOrThrow(req.id(), companyId);
+        if (note.getStatus() != NoteStatus.TAHSIL_EDILDI &&
+            note.getStatus() != NoteStatus.CIRO_EDILDI &&
+            note.getStatus() != NoteStatus.TEMINATA_CIKTI) {
+            throw new RuntimeException("Bu senet iade alınamaz (statü: " + note.getStatus() + ")");
+        }
+        NoteStatus onceki = note.getStatus();
+        if (onceki == NoteStatus.TAHSIL_EDILDI) {
+            cashService.addExpense(note.getAmount(),
+                    "Senet iadesi — kasadan düşüldü • " + note.getNoteNo(), userId, companyId);
+        }
+        note.setStatus(NoteStatus.PORTFOYDE);
+        String desc = "İade edildi (önceki: " + onceki.name() + ")";
+        if (req.description() != null && !req.description().isBlank()) desc += " • " + req.description();
+        note.setDescription(desc);
+        repository.save(note);
+        realtimeEventService.publish("SENET", "NOTE_IADE", companyId, note.getId());
+        return note;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // PROTESTOLU GİRİŞİ
+    // ─────────────────────────────────────────────────────────
+    @Audit(action = AuditAction.NOTE_PROTESTOLU)
+    @Transactional
+    public Note markAsProtested(CheckBadDebtRequest req, Long userId, Long companyId) {
+        Note note = getNoteOrThrow(req.id(), companyId);
+        if (note.getStatus() != NoteStatus.PORTFOYDE &&
+            note.getStatus() != NoteStatus.TAHSIL_EDILDI) {
+            throw new RuntimeException("Bu senet protestolu olarak işaretlenemez (statü: " + note.getStatus() + ")");
+        }
+        if (note.getStatus() == NoteStatus.TAHSIL_EDILDI) {
+            cashService.addExpense(note.getAmount(),
+                    "Protestolu — tahsilat iptal • " + note.getNoteNo(), userId, companyId);
+        }
+        note.setStatus(NoteStatus.PROTESTOLU);
+        String desc = "Protestolu";
+        if (req.description() != null && !req.description().isBlank()) desc += " • " + req.description();
+        note.setDescription(desc);
+        repository.save(note);
+        realtimeEventService.publish("SENET", "NOTE_PROTESTOLU", companyId, note.getId());
+        return note;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // PROTESTOLUDAN ÇIKIŞ
+    // ─────────────────────────────────────────────────────────
+    @Audit(action = AuditAction.NOTE_MUSTERI_IADE)
+    @Transactional
+    public Note exitProtested(CheckBadDebtExitRequest req, Long userId, Long companyId) {
+        Note note = getNoteOrThrow(req.id(), companyId);
+        if (note.getStatus() != NoteStatus.PROTESTOLU) {
+            throw new RuntimeException("Senet protestolu değil");
+        }
+        NoteStatus yeniStatus = switch (req.exitType()) {
+            case MUSTERI_IADE  -> NoteStatus.MUSTERI_IADE;
+            case AVUKATA_CIKIS -> NoteStatus.AVUKATA_CIKIS;
+        };
+        note.setStatus(yeniStatus);
+        String prefix = switch (req.exitType()) {
+            case MUSTERI_IADE  -> "Müşteriye iade edildi";
+            case AVUKATA_CIKIS -> "Avukata çıkış yapıldı";
+        };
+        String desc = prefix + " • " + note.getNoteNo();
+        if (req.description() != null && !req.description().isBlank()) desc += " • " + req.description();
+        note.setDescription(desc);
+        repository.save(note);
+        realtimeEventService.publish("SENET", yeniStatus.name(), companyId, note.getId());
+        return note;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // LİSTELEME
+    // ─────────────────────────────────────────────────────────
+
+    /** Tüm senetler — filtre frontend'de */
+    public List<NoteListResponse> getAllNotes(Long companyId) {
+        return repository
+                .findAllByCompanyIdOrderByCreatedAtDesc(companyId)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /** Sadece portföyde olanlar — eski endpoint uyumluluğu */
     public List<NoteListResponse> getPortfolioNotes(Long companyId) {
         return repository
                 .findByStatusAndCompanyId(NoteStatus.PORTFOYDE, companyId)
-                .stream()
-                .map(note -> new NoteListResponse(
-                        note.getId(),
-                        note.getNoteNo(),
-                        note.getDueDate(),
-                        note.getAmount(),
-                        note.getDescription()
-                ))
-                .toList();
+                .stream().map(this::toResponse).toList();
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // YARDIMCI
+    // ─────────────────────────────────────────────────────────
+    private Note getNoteOrThrow(Long id, Long companyId) {
+        return repository.findByIdAndCompanyId(id, companyId)
+                .orElseThrow(() -> new RuntimeException("Senet bulunamadı"));
+    }
+
+    private NoteListResponse toResponse(Note n) {
+        return new NoteListResponse(
+                n.getId(), n.getNoteNo(),
+                n.getEndorsedTo(),   // debtor alanı olarak kullanılıyor
+                n.getDueDate(), n.getAmount(), n.getDescription(),
+                n.getStatus(), n.getCreatedAt()
+        );
     }
 }

@@ -11,26 +11,24 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface NoteRepository
-        extends JpaRepository<Note,Long> {
+public interface NoteRepository extends JpaRepository<Note, Long> {
 
-    boolean existsByNoteNoAndCompanyId(
-            String noteNo,
-            Long companyId
-    );
+    boolean existsByNoteNoAndCompanyId(String noteNo, Long companyId);
 
     Optional<Note> findByNoteNoAndDueDateAndCompanyId(
-            String noteNo,
-            LocalDate dueDate,
-            Long companyId
-    );
+            String noteNo, LocalDate dueDate, Long companyId);
 
     Optional<Note> findByIdAndCompanyId(Long id, Long companyId);
 
-    List<Note> findByStatusAndCompanyId(
-            NoteStatus status,
-            Long companyId
-    );
+    List<Note> findByStatusAndCompanyId(NoteStatus status, Long companyId);
+
+    // Tüm senetler — filtre frontend'de
+    @Query("""
+        SELECT n FROM Note n
+        WHERE n.companyId = :companyId
+        ORDER BY n.createdAt DESC
+    """)
+    List<Note> findAllByCompanyIdOrderByCreatedAtDesc(Long companyId);
 
     @Query("""
         SELECT COALESCE(SUM(n.amount),0)
@@ -40,7 +38,6 @@ public interface NoteRepository
     """)
     BigDecimal portfolioTotal(Long companyId);
 
-    // Vadesi yaklaşan senetler
     @Query("""
     SELECT n FROM Note n
     WHERE n.companyId = :companyId
@@ -48,7 +45,7 @@ public interface NoteRepository
       AND n.dueDate >= :today
       AND n.dueDate <= :limitDate
     ORDER BY n.dueDate ASC
-""")
+    """)
     List<Note> findUpcomingDue(Long companyId, LocalDate today, LocalDate limitDate);
 
     @Query("""

@@ -6,6 +6,7 @@ import org.example.skills.enums.CheckType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record CheckListResponse(
         Long id,
@@ -15,5 +16,6 @@ public record CheckListResponse(
         BigDecimal amount,
         String description,
         CheckStatus status,
-        CheckType checkType
+        CheckType checkType,
+        LocalDateTime createdAt
 ) {}

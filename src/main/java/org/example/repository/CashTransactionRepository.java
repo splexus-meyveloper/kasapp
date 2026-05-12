@@ -69,7 +69,7 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     @Query("""
     select coalesce(sum(
         case
-          when t.type = :incomeType then t.amount
+          when t.type = 'INCOME' then t.amount
           else -t.amount
         end
     ), 0)
@@ -77,7 +77,7 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     where t.companyId = :companyId
       and t.active = true
     """)
-    BigDecimal balance(Long companyId, TransactionType incomeType);
+    BigDecimal balance(Long companyId);
 
     @Query("""
     select coalesce(sum(t.amount), 0)

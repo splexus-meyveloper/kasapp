@@ -1,10 +1,10 @@
 package org.example.dto.response;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record DashboardResponse(
 
-        // Mevcut alanlar
         BigDecimal todayIncome,
         BigDecimal todayExpense,
         BigDecimal monthlyNet,
@@ -12,11 +12,31 @@ public record DashboardResponse(
         BigDecimal checkPortfolioTotal,
         BigDecimal totalLoanDebt,
 
-        // Yeni: Normal user için günlük çek/senet
-        BigDecimal todayCheckTotal,    // bugün girilen çekler
-        BigDecimal todayNoteTotal,     // bugün girilen senetler
+        BigDecimal todayCheckTotal,
+        BigDecimal todayNoteTotal,
+        BigDecimal dailyNetBalance,
 
-        // Yeni: Günlük net bakiye (giriş - çıkış)
-        BigDecimal dailyNetBalance
+        // Günlük net bakiye grafiği (son 30 gün)
+        List<DailyNetBalance> dailyNetBalances,
 
-) {}
+        // Admin konsolide: diğer şubenin anlık özeti
+        BranchSummary otherBranchSummary,
+
+        // Bekleyen transfer sayısı (admin için rozet)
+        Integer pendingTransferCount
+) {
+    public record DailyNetBalance(
+            String date,          // "2025-05-12"
+            BigDecimal income,
+            BigDecimal expense,
+            BigDecimal net
+    ) {}
+
+    public record BranchSummary(
+            Long companyId,
+            String companyName,
+            BigDecimal balance,
+            BigDecimal checkPortfolioTotal,
+            Integer pendingTransferCount
+    ) {}
+}

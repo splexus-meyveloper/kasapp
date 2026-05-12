@@ -38,5 +38,26 @@ public enum AuditAction {
     EXPENSE_ADD,
 
     POS_LOG,                    // Kredi kartı POS kaydı
-    BANKA_CIKIS                 // Kasadan bankaya para çıkışı (sadece admin)
+    BANKA_CIKIS,                // Kasadan bankaya para çıkışı (sadece admin)
+
+    // Çek/senet iade (tahsil veya cirodan portföye geri dönüş)
+    CHECK_IADE,
+    NOTE_IADE,
+
+    // Karşılıksız / protestolu giriş
+    CHECK_KARSILISIZ,
+    CHECK_PROTESTOLU,
+    NOTE_KARSILISIZ,
+    NOTE_PROTESTOLU,
+
+    // Sorunlu çekten çıkış yolları
+    CHECK_MUSTERI_IADE,
+    CHECK_AVUKAT_CIKIS,
+    NOTE_MUSTERI_IADE,
+    NOTE_AVUKAT_CIKIS,
+
+    // Şubeler arası transfer
+    INTER_BRANCH_TRANSFER_CREATED,
+    INTER_BRANCH_TRANSFER_APPROVED,
+    INTER_BRANCH_TRANSFER_REJECTED
 }

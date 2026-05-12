@@ -31,10 +31,10 @@ public interface CheckRepository extends JpaRepository<Check,Long> {
     Optional<Check> findByIdAndCompanyId(Long id, Long companyId);
 
     @Query("""
-   SELECT COALESCE(SUM(c.amount),0)
-   FROM Check c
-   WHERE c.status='PORTFOYDE'
-   AND c.companyId=:companyId
+        SELECT COALESCE(SUM(c.amount),0)
+        FROM Check c
+        WHERE c.status='PORTFOYDE'
+        AND c.companyId=:companyId
 """)
     BigDecimal getPortfolioTotal(Long companyId);
 
@@ -42,6 +42,35 @@ public interface CheckRepository extends JpaRepository<Check,Long> {
             CheckStatus status,
             Long companyId
     );
+
+    // Tüm aktif (portföyde + sorunlu) çekler — bakiye hesabına dahil edilmez
+    @Query("""
+        SELECT c FROM Check c
+        WHERE c.companyId = :companyId
+          AND c.status IN ('PORTFOYDE', 'KARSILISIZ', 'PROTESTOLU')
+        ORDER BY c.createdAt DESC
+    """)
+    List<Check> findActiveByCompanyId(Long companyId);
+
+    // Belirli statülere göre listele
+    @Query("""
+        SELECT c FROM Check c
+        WHERE c.companyId = :companyId
+          AND c.status IN :statuses
+        ORDER BY c.createdAt DESC
+    """)
+    List<Check> findByStatusesAndCompanyId(
+            Long companyId,
+            java.util.Collection<CheckStatus> statuses
+    );
+
+    // Tüm çekler (filtreli liste için)
+    @Query("""
+        SELECT c FROM Check c
+        WHERE c.companyId = :companyId
+        ORDER BY c.createdAt DESC
+    """)
+    List<Check> findAllByCompanyIdOrderByCreatedAtDesc(Long companyId);
 
     // Vadesi yaklaşan çekler (x gün içinde)
     @Query("""

@@ -48,7 +48,7 @@ public class ReportService {
         BigDecimal totalExpense = cashRepo.sumTodayExpense(companyId,
                 TransactionType.EXPENSE, startDt, endDt);
         BigDecimal netBalance   = totalIncome.subtract(totalExpense);
-        BigDecimal currentCash  = cashRepo.balance(companyId, TransactionType.INCOME);
+        BigDecimal currentCash  = cashRepo.balance(companyId);
 
         // ── Aylık dağılım ──────────────────────────────────────────────
         List<MonthlyBreakdown> monthly = buildMonthlyBreakdown(companyId, start, end);
