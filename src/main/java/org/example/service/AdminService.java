@@ -10,6 +10,7 @@ import org.example.exception.KasappException;
 import org.example.repository.PermissionRepository;
 import org.example.repository.UserPermissionRepository;
 import org.example.repository.UserRepository;
+import org.example.repository.CompanyRepository;
 import org.example.security.CustomUserDetails;
 import org.example.skills.enums.ERole;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +27,7 @@ public class AdminService {
     private final PermissionRepository permissionRepository;
     private final UserPermissionRepository userPermissionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CompanyRepository companyRepository;
 
     @Transactional(readOnly = true)
     public List<String> getUserPermissions(Long userId, Long companyId) {
@@ -71,7 +73,8 @@ public class AdminService {
 
     @Transactional(readOnly = true)
     public List<User> getAllProfiles(Long companyId) {
-        return userRepository.findAllByCompanyIdAndActiveTrue(companyId);
+        // Admin tüm şubelerdeki kullanıcıları görebilir
+        return userRepository.findAllByActiveTrue();
     }
 
     @Transactional
@@ -134,8 +137,15 @@ public class AdminService {
             throw new KasappException(ErrorType.USER_INACTIVE);
         }
 
+        Long targetCompanyId = request.companyId() != null
+                ? request.companyId()
+                : adminUser.getCompanyId();
+
+        companyRepository.findById(targetCompanyId)
+                .orElseThrow(() -> new KasappException(ErrorType.COMPANY_NOT_FOUND));
+
         boolean usernameExists = userRepository
-                .findByCompanyIdAndUsername(adminUser.getCompanyId(), request.username())
+                .findByCompanyIdAndUsername(targetCompanyId, request.username())
                 .isPresent();
 
         if (usernameExists) {
@@ -149,7 +159,7 @@ public class AdminService {
         }
 
         User user = new User();
-        user.setCompanyId(adminUser.getCompanyId());
+        user.setCompanyId(targetCompanyId);
         user.setUsername(request.username());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(request.role() != null ? request.role() : ERole.USER);
@@ -163,13 +173,9 @@ public class AdminService {
     }
 
     private User getCompanyScopedUser(Long targetUserId, Long companyId) {
-        User user = userRepository.findById(targetUserId)
+        // Admin tüm şubelerin kullanıcılarını yönetebilir
+        // companyId kontrolü kaldırıldı — şubeler arası kullanıcı yönetimi için
+        return userRepository.findById(targetUserId)
                 .orElseThrow(() -> new KasappException(ErrorType.USER_NOT_FOUND));
-
-        if (!user.getCompanyId().equals(companyId)) {
-            throw new KasappException(ErrorType.USER_NOT_FOUND);
-        }
-
-        return user;
     }
 }

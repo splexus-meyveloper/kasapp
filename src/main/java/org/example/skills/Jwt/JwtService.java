@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import org.example.entity.Company;
 import org.example.entity.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,12 +32,14 @@ public class JwtService {
                 .build();
     }
 
-    public String generateToken(User user, List<String> permissions) {
+    public String generateToken(User user, Company company, List<String> permissions) {
         return JWT.create()
                 .withIssuer(issuer)
                 .withSubject(user.getUsername())
                 .withClaim("userId", user.getId())
                 .withClaim("companyId", user.getCompanyId())
+                .withClaim("companyName", company.getName())
+                .withClaim("branchType", company.getBranchType() != null ? company.getBranchType().name() : null)
                 .withClaim("role", user.getRole().name())
                 .withClaim("permissions", permissions)
                 .withIssuedAt(new Date())

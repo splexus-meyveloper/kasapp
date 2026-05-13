@@ -28,18 +28,32 @@ public class InterBranchTransferService {
     private final RealtimeEventService          realtimeEventService;
 
     // ─────────────────────────────────────────────────────────
-    // TRANSFER OLUŞTUR (Adapazarı şubesi)
+    // TRANSFER OLUŞTUR
     // ─────────────────────────────────────────────────────────
     @Transactional
     public TransferResponse createTransfer(TransferCreateRequest req,
                                            Long userId,
                                            Long sourceCompanyId) {
 
-        // Merkez şubeyi bul (parentCompanyId = null olan MERKEZ)
-        Company merkez = companyRepo.findAll().stream()
-                .filter(c -> c.getBranchType() == BranchType.MERKEZ)
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Merkez şube bulunamadı"));
+        // Kaynak şubeyi doğrula
+        Company sourceCompany = companyRepo.findById(sourceCompanyId)
+                .orElseThrow(() -> new RuntimeException("Kaynak şube bulunamadı"));
+
+        if (sourceCompany.getBranchType() != BranchType.SUBE) {
+            throw new RuntimeException(
+                    "Transfer sadece şubeden merkeze oluşturulabilir. " +
+                    "Kaynak şube tipi SUBE olmalıdır.");
+        }
+
+        // Merkezi bul: transfer hedefi her zaman MERKEZ şubedir
+        Company merkez = companyRepo.findFirstByBranchType(BranchType.MERKEZ)
+                .orElseThrow(() -> new RuntimeException(
+                    "Merkez şube bulunamadı. Lütfen şube tiplerini admin panelinden kontrol edin."));
+
+        // Aynı şirkete transfer yasak
+        if (merkez.getId().equals(sourceCompanyId)) {
+            throw new RuntimeException("Kendi şubenize transfer yapamazsınız");
+        }
 
         // Nakit/banka transferlerde tutar zorunlu
         if (req.transferType() != TransferType.CEK_SENET && req.amount() == null) {
@@ -125,7 +139,6 @@ public class InterBranchTransferService {
             }
         }
 
-        // Her iki şubeye de bildir
         realtimeEventService.publish("TRANSFER", "TRANSFER_CREATED", sourceCompanyId, transfer.getId());
         realtimeEventService.publish("TRANSFER", "TRANSFER_CREATED", merkez.getId(), transfer.getId());
 
@@ -148,32 +161,42 @@ public class InterBranchTransferService {
         Long sourceId = transfer.getSourceCompanyId();
         Long targetId = transfer.getTargetCompanyId();
 
+        // Şirket adlarını al — kasa açıklamalarında kullanmak için
+        String sourceName = companyRepo.findById(sourceId)
+                .map(Company::getName).orElse("Kaynak Şube");
+        String targetName = companyRepo.findById(targetId)
+                .map(Company::getName).orElse("Hedef Şube");
+
         switch (transfer.getTransferType()) {
 
             case NAKIT_GONDERIM -> {
-                // Adapazarı kasasından çıkar
-                cashService.addExpense(transfer.getAmount(),
-                        "Şubeler arası nakit gönderim — Bursa'ya • Transfer #" + transfer.getId(),
+                // Kaynak şubeden (Adapazarı) çıkar
+                cashService.addExpense(
+                        transfer.getAmount(),
+                        sourceName + " → " + targetName + " nakit gönderim • Transfer #" + transfer.getId(),
                         adminUserId, sourceId);
-                // Bursa kasasına gir
-                cashService.addIncome(transfer.getAmount(),
-                        "Şubeler arası nakit alındı — Adapazarı'ndan • Transfer #" + transfer.getId(),
+                // Hedef şubeye (Bursa) gir
+                cashService.addIncome(
+                        transfer.getAmount(),
+                        sourceName + "'den nakit alındı • Transfer #" + transfer.getId(),
                         adminUserId, targetId);
             }
 
             case BANKA_YATIRMA -> {
-                // Adapazarı kasasından çıkar
-                cashService.addExpense(transfer.getAmount(),
-                        "Bankaya yatırma — şube transferi • Transfer #" + transfer.getId(),
+                // Kaynak şubeden çıkar
+                cashService.addExpense(
+                        transfer.getAmount(),
+                        sourceName + " bankaya yatırma • Transfer #" + transfer.getId(),
                         adminUserId, sourceId);
-                // Bursa kasasına gir (banka kanalıyla)
-                cashService.addIncome(transfer.getAmount(),
-                        "Banka transferi alındı — Adapazarı'ndan • Transfer #" + transfer.getId(),
+                // Hedef şubeye gir
+                cashService.addIncome(
+                        transfer.getAmount(),
+                        sourceName + "'den banka transferi • Transfer #" + transfer.getId(),
                         adminUserId, targetId);
             }
 
             case CEK_SENET -> {
-                // Her çek ve senetin companyId'sini Bursa'ya taşı
+                // Çek/senetlerin companyId'sini hedef şubeye taşı
                 List<TransferCheckItem> items = itemRepo.findByTransferId(transfer.getId());
                 for (TransferCheckItem item : items) {
                     if ("CHECK".equals(item.getItemType())) {
@@ -231,19 +254,16 @@ public class InterBranchTransferService {
     // LİSTELEME
     // ─────────────────────────────────────────────────────────
 
-    /** Şubenin kendi transferleri */
     public List<TransferResponse> getMyTransfers(Long companyId) {
         return transferRepo.findByCompanyId(companyId)
                 .stream().map(this::toResponse).toList();
     }
 
-    /** Admin: bekleyen transferler */
     public List<TransferResponse> getPendingTransfers() {
         return transferRepo.findByStatusOrderByCreatedAtDesc(TransferStatus.PENDING)
                 .stream().map(this::toResponse).toList();
     }
 
-    /** Admin: tüm transferler */
     public List<TransferResponse> getAllTransfers() {
         return transferRepo.findAllOrderByCreatedAtDesc()
                 .stream().map(this::toResponse).toList();

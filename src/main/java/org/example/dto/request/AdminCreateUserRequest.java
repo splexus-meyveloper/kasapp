@@ -13,35 +13,18 @@ public record AdminCreateUserRequest(
         )
         String username,
 
-        // Alt kullanıcı şifresi: tam olarak 4 rakam
         @NotBlank(message = "Şifre boş olamaz")
-        @Pattern(
-                regexp = "^[0-9]{4}$",
-                message = "Alt kullanıcı şifresi tam olarak 4 rakamdan oluşmalıdır"
-        )
+        @Pattern(regexp = "^[0-9]{4}$", message = "Şifre tam olarak 4 rakam olmalıdır")
         String password,
 
-        @NotBlank(message = "Ad bos olamaz")
-        @Size(max = 50, message = "Ad 50 karakterden uzun olamaz")
+        // Opsiyonel alanlar — frontend göndermeyebilir
         String name,
-
-        @NotBlank(message = "Soyad bos olamaz")
-        @Size(max = 50, message = "Soyad 50 karakterden uzun olamaz")
         String surname,
-
-        @NotBlank(message = "Email bos olamaz")
-        @Email(message = "Geçerli bir email adresi giriniz")
-        @Size(max = 150, message = "Email 150 karakterden uzun olamaz")
         String email,
-
-        @NotBlank(message = "Telefon bos olamaz")
-        @Pattern(
-                regexp = "^[0-9+\\-\\s]{7,20}$",
-                message = "Geçerli bir telefon numarası giriniz"
-        )
         String phone,
+        ERole role,
 
-        @NotNull(message = "Rol secilmelidir")
-        ERole role
+        // Hangi şubeye ekleneceği — null ise admin'in kendi şubesi
+        Long companyId
 
 ) {}

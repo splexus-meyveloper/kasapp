@@ -23,6 +23,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findAllByCompanyIdAndActiveTrue(Long companyId);
 
+    // Tüm şubelerdeki aktif kullanıcılar (admin konsolide görünüm)
+    List<User> findAllByActiveTrue();
+
     Optional<User> findByCompanyIdAndUsername(Long companyId, String username);
 
     boolean existsByEmail(String email);

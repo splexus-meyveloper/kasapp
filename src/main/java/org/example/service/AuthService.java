@@ -65,13 +65,16 @@ public class AuthService {
         List<String> permissions = getUserPermissions(user);
 
         // 5️⃣ JWT üret
-        String token = jwtService.generateToken(user, permissions);
+        String token = jwtService.generateToken(user, company, permissions);
 
         // 6️⃣ Response
         return new LoginResponse(
                 token,
                 user.getUsername(),
                 user.getRole(),
+                company.getId(),
+                company.getName(),
+                company.getBranchType(),
                 permissions
         );
     }
