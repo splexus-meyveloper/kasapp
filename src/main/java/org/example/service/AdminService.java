@@ -124,6 +124,24 @@ public class AdminService {
     }
 
     @Transactional
+    public void updateUserCompany(Long userId, Long targetCompanyId, Long currentUserId, Long companyId) {
+
+        User user = getCompanyScopedUser(userId, companyId);
+
+        companyRepository.findById(targetCompanyId)
+                .orElseThrow(() -> new KasappException(ErrorType.COMPANY_NOT_FOUND));
+
+        userRepository.findByCompanyIdAndUsername(targetCompanyId, user.getUsername())
+                .filter(existing -> !existing.getId().equals(user.getId()))
+                .ifPresent(existing -> {
+                    throw new KasappException(ErrorType.USER_ALREADY_EXISTS);
+                });
+
+        user.setCompanyId(targetCompanyId);
+        userRepository.save(user);
+    }
+
+    @Transactional
     public void createSubUser(AdminCreateUserRequest request, CustomUserDetails currentUser) {
 
         User adminUser = userRepository.findById(currentUser.getId())

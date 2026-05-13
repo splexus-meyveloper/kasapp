@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.AdminCreateUserRequest;
 import org.example.dto.request.SetPermissionsRequest;
+import org.example.dto.request.UpdateUserCompanyRequest;
 import org.example.entity.Company;
 import org.example.entity.User;
 import org.example.exception.ErrorType;
@@ -68,6 +69,15 @@ public class AdminController {
             @RequestParam String role,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         adminService.updateUserRole(id, role, currentUser.getId(), currentUser.getCompanyId());
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/users/{id}/company")
+    public void updateUserCompany(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserCompanyRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        adminService.updateUserCompany(id, request.companyId(), currentUser.getId(), currentUser.getCompanyId());
     }
 
     @PreAuthorize("hasRole('ADMIN')")
