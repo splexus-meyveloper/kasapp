@@ -12,6 +12,7 @@ import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import lombok.RequiredArgsConstructor;
+import org.example.audit.AuditDirectionResolver;
 import org.example.dto.response.MyActivityDto;
 import org.example.entity.AuditLog;
 import org.example.entity.ChangeRequest;
@@ -77,7 +78,7 @@ public class MyActivityService {
                     .amount(log.getAmount())
                     .description(log.getDescription())
                     .status("COMPLETED")
-                    .direction(resolveDirection(log.getAction()))
+                    .direction(AuditDirectionResolver.resolve(log.getAction(), log.getCashDirection()))
                     .date(log.getCreatedAt())
                     .entityId(log.getEntityId())
                     .entityType(log.getEntityType())
@@ -281,7 +282,7 @@ public class MyActivityService {
                 .amount(pos.getAmount())
                 .description(pos.getDescription())
                 .status("COMPLETED")
-                .direction("NONE")
+                .direction("IN")
                 .date(pos.getLogDate())
                 .entityId(pos.getId())
                 .entityType("POS")
@@ -318,14 +319,6 @@ public class MyActivityService {
             case ALTIKARDESLER_POS -> "Altikardesler POS";
             case TEDARIKCI_POS -> "Tedarikci POS";
             case YAZARKASA_POS -> "Yazarkasa POS";
-        };
-    }
-
-    private String resolveDirection(String action) {
-        return switch (action) {
-            case "CASH_INCOME", "POS_LOG" -> "IN";
-            case "CASH_EXPENSE", "EXPENSE_ADD", "LOAN_INSTALLMENT", "CHECK_OUT" -> "OUT";
-            default -> "NONE";
         };
     }
 

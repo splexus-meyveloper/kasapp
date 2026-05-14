@@ -23,6 +23,10 @@ public interface InterBranchTransferRepository extends JpaRepository<InterBranch
     // Belirli şubenin gönderdiği transferler
     List<InterBranchTransfer> findBySourceCompanyIdOrderByCreatedAtDesc(Long sourceCompanyId);
 
+    int countBySourceCompanyIdAndStatus(Long sourceCompanyId, TransferStatus status);
+
+    int countByTargetCompanyIdAndStatus(Long targetCompanyId, TransferStatus status);
+
     // Tüm transferler (admin konsolide görünüm)
     @Query("""
         SELECT t FROM InterBranchTransfer t

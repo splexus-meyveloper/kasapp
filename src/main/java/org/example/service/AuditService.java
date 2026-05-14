@@ -1,6 +1,7 @@
 package org.example.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.audit.AuditDirectionResolver;
 import org.example.audit.AuditDetails;
 import org.example.entity.AuditLog;
 import org.example.entity.User;
@@ -65,6 +66,7 @@ public class AuditService {
                 .userId(userId)
                 .username(username)
                 .companyId(companyId)
+                .cashDirection(AuditDirectionResolver.resolve(action.name()))
                 .createdAt(LocalDateTime.now())
                 .detailsJson(details)
                 .build();

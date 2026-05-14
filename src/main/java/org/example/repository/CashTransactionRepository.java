@@ -31,6 +31,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     from CashTransaction t
     where t.companyId = :companyId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.type = :incomeType
       and t.transactionDate >= :start
       and t.transactionDate < :end
@@ -43,6 +45,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     from CashTransaction t
     where t.companyId = :companyId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.type = :expenseType
       and t.transactionDate >= :start
       and t.transactionDate < :end
@@ -60,6 +64,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     from CashTransaction t
     where t.companyId = :companyId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.transactionDate >= :start
       and t.transactionDate < :end
     """)
@@ -85,6 +91,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     where t.companyId = :companyId
       and t.userId = :userId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.type = :incomeType
       and t.transactionDate >= :start
       and t.transactionDate < :end
@@ -98,6 +106,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     where t.companyId = :companyId
       and t.userId = :userId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.type = :expenseType
       and t.transactionDate >= :start
       and t.transactionDate < :end
@@ -116,6 +126,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     where t.companyId = :companyId
       and t.userId = :userId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.transactionDate >= :start
       and t.transactionDate < :end
     """)
@@ -131,6 +143,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     from CashTransaction t
     where t.companyId = :companyId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.transactionDate >= :start
       and t.transactionDate < :end
     group by cast(t.transactionDate as date), t.type
@@ -147,6 +161,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     where t.companyId = :companyId
       and t.userId = :userId
       and t.active = true
+      and (t.transferTransaction is null or t.transferTransaction = false)
+      and (t.description is null or lower(t.description) not like '%transfer #%')
       and t.transactionDate >= :start
       and t.transactionDate < :end
     group by cast(t.transactionDate as date), t.type

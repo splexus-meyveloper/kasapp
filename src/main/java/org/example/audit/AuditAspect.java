@@ -193,7 +193,7 @@ public class AuditAspect {
                 .userId(user.getId())
                 .companyId(user.getCompanyId())
                 .action(audit.action().name())
-                .cashDirection(audit.cash().name())
+                .cashDirection(AuditDirectionResolver.resolve(audit.action().name(), audit.cash().name()))
                 .amount(amount)
                 .description(description)
                 .entityType(resolveEntityType(pjp))

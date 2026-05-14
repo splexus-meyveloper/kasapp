@@ -3,8 +3,8 @@ package org.example.service;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.response.DashboardResponse;
 import org.example.entity.Company;
+import org.example.entity.User;
 import org.example.repository.*;
-import org.example.skills.enums.BranchType;
 import org.example.skills.enums.TransactionType;
 import org.example.skills.enums.TransferStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +25,7 @@ public class DashboardService {
     private final CheckRepository                 checkRepo;
     private final CompanyRepository               companyRepo;
     private final InterBranchTransferRepository   transferRepo;
+    private final UserRepository                  userRepository;
 
     public DashboardResponse getDashboard(Long companyId, Long currentUserId,
                                           String role, Long selectedUserId) {
@@ -36,47 +37,51 @@ public class DashboardService {
         LocalDateTime monthStart     = firstDayOfMonth.atStartOfDay();
         LocalDateTime nextMonthStart = firstDayOfMonth.plusMonths(1).atStartOfDay();
 
-        Long effectiveUserId = resolveUserId(role, currentUserId, selectedUserId);
+        User selectedUser = resolveSelectedUser(role, selectedUserId, companyId);
+        Long dashboardCompanyId = companyId;
+        Long effectiveUserId = selectedUser != null
+                ? selectedUser.getId()
+                : resolveUserId(role, currentUserId);
         boolean isAdmin      = "ADMIN".equals(role);
 
         BigDecimal todayIncome, todayExpense, monthlyNet;
 
         if (effectiveUserId == null) {
-            todayIncome  = repo.sumTodayIncome(companyId, TransactionType.INCOME, todayStart, tomorrow);
-            todayExpense = repo.sumTodayExpense(companyId, TransactionType.EXPENSE, todayStart, tomorrow);
+            todayIncome  = repo.sumTodayIncome(dashboardCompanyId, TransactionType.INCOME, todayStart, tomorrow);
+            todayExpense = repo.sumTodayExpense(dashboardCompanyId, TransactionType.EXPENSE, todayStart, tomorrow);
             monthlyNet   = isAdmin
-                    ? repo.monthlyNet(companyId, TransactionType.INCOME, monthStart, nextMonthStart)
+                    ? repo.monthlyNet(dashboardCompanyId, TransactionType.INCOME, monthStart, nextMonthStart)
                     : BigDecimal.ZERO;
         } else {
-            todayIncome  = repo.sumTodayIncomeByUser(companyId, effectiveUserId, TransactionType.INCOME, todayStart, tomorrow);
-            todayExpense = repo.sumTodayExpenseByUser(companyId, effectiveUserId, TransactionType.EXPENSE, todayStart, tomorrow);
+            todayIncome  = repo.sumTodayIncomeByUser(dashboardCompanyId, effectiveUserId, TransactionType.INCOME, todayStart, tomorrow);
+            todayExpense = repo.sumTodayExpenseByUser(dashboardCompanyId, effectiveUserId, TransactionType.EXPENSE, todayStart, tomorrow);
             monthlyNet   = isAdmin
-                    ? repo.monthlyNetByUser(companyId, effectiveUserId, TransactionType.INCOME, monthStart, nextMonthStart)
+                    ? repo.monthlyNetByUser(dashboardCompanyId, effectiveUserId, TransactionType.INCOME, monthStart, nextMonthStart)
                     : BigDecimal.ZERO;
         }
 
-        BigDecimal balance             = repo.balance(companyId);
-        BigDecimal checkPortfolioTotal = checkRepo.getPortfolioTotal(companyId);
-        BigDecimal totalLoanDebt       = loanRepository.sumRemainingDebtByCompanyId(companyId);
+        BigDecimal balance             = repo.balance(dashboardCompanyId);
+        BigDecimal checkPortfolioTotal = checkRepo.getPortfolioTotal(dashboardCompanyId);
+        BigDecimal totalLoanDebt       = loanRepository.sumRemainingDebtByCompanyId(dashboardCompanyId);
         BigDecimal dailyNetBalance     = todayIncome.subtract(todayExpense);
 
         BigDecimal todayCheckTotal = BigDecimal.ZERO;
         BigDecimal todayNoteTotal  = BigDecimal.ZERO;
         if (!isAdmin) {
-            todayCheckTotal = checkRepo.sumTodayByUser(companyId, currentUserId, todayStart, tomorrow);
-            todayNoteTotal  = noteRepository.sumTodayByUser(companyId, currentUserId, todayStart, tomorrow);
+            todayCheckTotal = checkRepo.sumTodayByUser(dashboardCompanyId, currentUserId, todayStart, tomorrow);
+            todayNoteTotal  = noteRepository.sumTodayByUser(dashboardCompanyId, currentUserId, todayStart, tomorrow);
         }
 
         // Günlük net bakiye — son 30 gün
         List<DashboardResponse.DailyNetBalance> dailyNetBalances =
-                buildDailyNetBalances(companyId, today);
+                buildDailyNetBalances(dashboardCompanyId, today);
 
         // Admin: diğer şubenin özeti
         DashboardResponse.BranchSummary otherBranch = null;
         Integer pendingCount = null;
         if (isAdmin) {
-            otherBranch  = buildOtherBranchSummary(companyId);
-            pendingCount = transferRepo.findByStatusOrderByCreatedAtDesc(TransferStatus.PENDING).size();
+            otherBranch  = buildOtherBranchSummary(companyId, todayStart, tomorrow, monthStart, nextMonthStart);
+            pendingCount = countPendingTransfersForDashboard(companyId);
         }
 
         return new DashboardResponse(
@@ -94,14 +99,18 @@ public class DashboardService {
     // ─────────────────────────────────────────────────────────
     public Map<String, Object> getChart(Long companyId, Long currentUserId,
                                         String role, Long selectedUserId) {
-        Long effectiveUserId = resolveUserId(role, currentUserId, selectedUserId);
+        User selectedUser = resolveSelectedUser(role, selectedUserId, companyId);
+        Long dashboardCompanyId = companyId;
+        Long effectiveUserId = selectedUser != null
+                ? selectedUser.getId()
+                : resolveUserId(role, currentUserId);
         LocalDate today      = LocalDate.now();
         LocalDateTime rangeStart = today.minusDays(10).atStartOfDay();
         LocalDateTime rangeEnd   = today.plusDays(1).atStartOfDay();
 
         List<Object[]> rows = (effectiveUserId == null)
-                ? repo.sumByDayAndType(companyId, rangeStart, rangeEnd)
-                : repo.sumByDayAndTypeForUser(companyId, effectiveUserId, rangeStart, rangeEnd);
+                ? repo.sumByDayAndType(dashboardCompanyId, rangeStart, rangeEnd)
+                : repo.sumByDayAndTypeForUser(dashboardCompanyId, effectiveUserId, rangeStart, rangeEnd);
 
         Map<LocalDate, BigDecimal[]> dayMap = new LinkedHashMap<>();
         for (Object[] row : rows) {
@@ -173,11 +182,13 @@ public class DashboardService {
     // ─────────────────────────────────────────────────────────
     // YARDIMCI: Diğer şubenin özeti (admin için)
     // ─────────────────────────────────────────────────────────
-    private DashboardResponse.BranchSummary buildOtherBranchSummary(Long myCompanyId) {
+    private DashboardResponse.BranchSummary buildOtherBranchSummary(Long myCompanyId,
+                                                                    LocalDateTime todayStart,
+                                                                    LocalDateTime tomorrow,
+                                                                    LocalDateTime monthStart,
+                                                                    LocalDateTime nextMonthStart) {
         // Diğer şube: benim şubem değil, başka company
-        Optional<Company> other = companyRepo.findAll().stream()
-                .filter(c -> !c.getId().equals(myCompanyId))
-                .findFirst();
+        Optional<Company> other = resolveOtherBranch(myCompanyId);
 
         if (other.isEmpty()) return null;
 
@@ -185,24 +196,70 @@ public class DashboardService {
         Long otherId = otherCompany.getId();
 
         BigDecimal otherBalance = repo.balance(otherId);
-        BigDecimal otherChecks  = checkRepo.getPortfolioTotal(otherId);
-        int pendingCount = transferRepo
-                .findBySourceCompanyIdOrderByCreatedAtDesc(otherId).stream()
-                .filter(t -> t.getStatus() == TransferStatus.PENDING)
-                .toList().size();
+        BigDecimal otherTodayIncome = repo.sumTodayIncome(otherId, TransactionType.INCOME, todayStart, tomorrow);
+        BigDecimal otherTodayExpense = repo.sumTodayExpense(otherId, TransactionType.EXPENSE, todayStart, tomorrow);
+        BigDecimal otherDailyNet = otherTodayIncome.subtract(otherTodayExpense);
+        BigDecimal otherMonthlyNet = repo.monthlyNet(otherId, TransactionType.INCOME, monthStart, nextMonthStart);
+        BigDecimal otherChecksAndNotes = checkRepo.getPortfolioTotal(otherId)
+                .add(noteRepository.portfolioTotal(otherId));
+        int pendingCount = transferRepo.countBySourceCompanyIdAndStatus(otherId, TransferStatus.PENDING);
 
         return new DashboardResponse.BranchSummary(
                 otherId,
                 otherCompany.getName(),
                 otherBalance,
-                otherChecks,
+                otherTodayIncome,
+                otherTodayExpense,
+                otherDailyNet,
+                otherMonthlyNet,
+                otherChecksAndNotes,
                 pendingCount
         );
     }
 
-    private Long resolveUserId(String role, Long currentUserId, Long selectedUserId) {
+    private User resolveSelectedUser(String role, Long selectedUserId, Long currentCompanyId) {
+        if (!"ADMIN".equals(role) || selectedUserId == null) {
+            return null;
+        }
+        User selectedUser = userRepository.findById(selectedUserId)
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
+        return selectedUser.getCompanyId().equals(currentCompanyId) ? selectedUser : null;
+    }
+
+    private int countPendingTransfersForDashboard(Long companyId) {
+        return companyRepo.findById(companyId)
+                .filter(c -> c.getBranchType() == org.example.skills.enums.BranchType.MERKEZ)
+                .map(c -> transferRepo.countByTargetCompanyIdAndStatus(companyId, TransferStatus.PENDING))
+                .orElseGet(() -> transferRepo.countBySourceCompanyIdAndStatus(companyId, TransferStatus.PENDING));
+    }
+
+    private Optional<Company> resolveOtherBranch(Long myCompanyId) {
+        Optional<Company> current = companyRepo.findById(myCompanyId);
+
+        if (current.isPresent()
+                && current.get().getBranchType() == org.example.skills.enums.BranchType.MERKEZ) {
+            return companyRepo.findAll().stream()
+                    .filter(c -> !c.getId().equals(myCompanyId))
+                    .filter(c -> c.getBranchType() == org.example.skills.enums.BranchType.SUBE)
+                    .findFirst();
+        }
+
+        Long parentCompanyId = current.map(Company::getParentCompanyId).orElse(null);
+        if (parentCompanyId != null) {
+            Optional<Company> parent = companyRepo.findById(parentCompanyId);
+            if (parent.isPresent()) {
+                return parent;
+            }
+        }
+
+        return companyRepo.findAll().stream()
+                .filter(c -> !c.getId().equals(myCompanyId))
+                .filter(c -> c.getBranchType() == org.example.skills.enums.BranchType.MERKEZ)
+                .findFirst();
+    }
+
+    private Long resolveUserId(String role, Long currentUserId) {
         if (!"ADMIN".equals(role)) return currentUserId;
-        if (selectedUserId != null) return selectedUserId;
         return null;
     }
 }

@@ -32,5 +32,9 @@ public class CashTransaction {
     @Column(nullable = false)
     private Long companyId;
     @Column(nullable = false)
+    @Builder.Default
     private boolean active=true;
+
+    @Builder.Default
+    private Boolean transferTransaction = false;
 }

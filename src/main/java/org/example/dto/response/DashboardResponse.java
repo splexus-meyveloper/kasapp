@@ -36,6 +36,10 @@ public record DashboardResponse(
             Long companyId,
             String companyName,
             BigDecimal balance,
+            BigDecimal todayIncome,
+            BigDecimal todayExpense,
+            BigDecimal dailyNetBalance,
+            BigDecimal monthlyNet,
             BigDecimal checkPortfolioTotal,
             Integer pendingTransferCount
     ) {}

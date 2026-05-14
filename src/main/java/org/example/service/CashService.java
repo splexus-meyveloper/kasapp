@@ -36,7 +36,7 @@ public class CashService {
     public CashTransaction addIncome(@AuditAmount BigDecimal amount,
                                      @AuditDesc String description,
                                      Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId);
+        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, false);
         realtimeEventService.publish("KASA", "CASH_INCOME", companyId, tx.getId());
         return tx;
     }
@@ -46,7 +46,7 @@ public class CashService {
     public CashTransaction addExpense(@AuditAmount BigDecimal amount,
                                       @AuditDesc String description,
                                       Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId);
+        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false);
         realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
         return tx;
     }
@@ -56,7 +56,7 @@ public class CashService {
     public CashTransaction addExpenseFromExpenseModule(@AuditAmount BigDecimal amount,
                                                        @AuditDesc String description,
                                                        Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId);
+        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false);
         realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
         return tx;
     }
@@ -66,8 +66,22 @@ public class CashService {
     public CashTransaction addIncomeFromModule(@AuditAmount BigDecimal amount,
                                                @AuditDesc String description,
                                                Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId);
+        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, false);
         realtimeEventService.publish("KASA", "CASH_INCOME", companyId, tx.getId());
+        return tx;
+    }
+
+    @Transactional
+    public CashTransaction addTransferIncome(BigDecimal amount, String description, Long userId, Long companyId) {
+        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, true);
+        realtimeEventService.publish("KASA", "TRANSFER_INCOME", companyId, tx.getId());
+        return tx;
+    }
+
+    @Transactional
+    public CashTransaction addTransferExpense(BigDecimal amount, String description, Long userId, Long companyId) {
+        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, true);
+        realtimeEventService.publish("KASA", "TRANSFER_EXPENSE", companyId, tx.getId());
         return tx;
     }
 
@@ -99,6 +113,12 @@ public class CashService {
 
     private CashTransaction createTransaction(TransactionType type, BigDecimal amount,
                                               String description, Long userId, Long companyId) {
+        return createTransaction(type, amount, description, userId, companyId, false);
+    }
+
+    private CashTransaction createTransaction(TransactionType type, BigDecimal amount,
+                                              String description, Long userId, Long companyId,
+                                              boolean transferTransaction) {
         validate(amount);
         amount = amount.setScale(2, RoundingMode.HALF_UP);
 
@@ -110,6 +130,7 @@ public class CashService {
                 .userId(userId)
                 .companyId(companyId)
                 .active(true)
+                .transferTransaction(transferTransaction)
                 .build();
 
         return repository.save(tx);

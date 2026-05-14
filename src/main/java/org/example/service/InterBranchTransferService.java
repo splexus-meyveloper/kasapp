@@ -171,12 +171,12 @@ public class InterBranchTransferService {
 
             case NAKIT_GONDERIM -> {
                 // Kaynak şubeden (Adapazarı) çıkar
-                cashService.addExpense(
+                cashService.addTransferExpense(
                         transfer.getAmount(),
                         sourceName + " → " + targetName + " nakit gönderim • Transfer #" + transfer.getId(),
                         adminUserId, sourceId);
                 // Hedef şubeye (Bursa) gir
-                cashService.addIncome(
+                cashService.addTransferIncome(
                         transfer.getAmount(),
                         sourceName + "'den nakit alındı • Transfer #" + transfer.getId(),
                         adminUserId, targetId);
@@ -184,12 +184,12 @@ public class InterBranchTransferService {
 
             case BANKA_YATIRMA -> {
                 // Kaynak şubeden çıkar
-                cashService.addExpense(
+                cashService.addTransferExpense(
                         transfer.getAmount(),
                         sourceName + " bankaya yatırma • Transfer #" + transfer.getId(),
                         adminUserId, sourceId);
                 // Hedef şubeye gir
-                cashService.addIncome(
+                cashService.addTransferIncome(
                         transfer.getAmount(),
                         sourceName + "'den banka transferi • Transfer #" + transfer.getId(),
                         adminUserId, targetId);

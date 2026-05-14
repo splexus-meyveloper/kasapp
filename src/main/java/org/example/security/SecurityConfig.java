@@ -63,6 +63,7 @@ public class SecurityConfig {
 
                     auth.requestMatchers("/api/auth/**").permitAll();
                     auth.requestMatchers("/ws/**").permitAll();
+                    auth.requestMatchers("/api/my-notes/**").authenticated();
 
                     if (swaggerEnabled) {
                         auth.requestMatchers(

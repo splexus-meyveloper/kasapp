@@ -1,6 +1,7 @@
 package org.example.dto.response;
 
 import org.example.audit.AuditDetails;
+import org.example.audit.AuditDirectionResolver;
 import org.example.entity.AuditLog;
 
 import java.math.BigDecimal;
@@ -12,6 +13,7 @@ public record AuditLogResponse(
         String username,
         String action,
         BigDecimal amount,
+        String direction,
         String description,
         LocalDateTime createdAt,
         String expenseType,
@@ -26,6 +28,7 @@ public record AuditLogResponse(
                 log.getUsername(),
                 log.getAction(),
                 log.getAmount(),
+                AuditDirectionResolver.resolve(log.getAction(), log.getCashDirection()),
                 log.getDescription(),
                 log.getCreatedAt(),
                 stringValue(payload, "expenseType"),
