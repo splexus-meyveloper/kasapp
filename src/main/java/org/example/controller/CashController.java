@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 @RestController
 @RequestMapping("/api/cash")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('KASA') or hasRole('ADMIN')")
 public class CashController {
 
     private final CashService service;

@@ -18,6 +18,7 @@ import org.example.repository.UserPermissionRepository;
 import org.example.repository.UserRepository;
 import org.example.security.CustomUserDetails;
 import org.example.skills.Jwt.JwtService;
+import org.example.skills.enums.BranchType;
 import org.example.skills.enums.ERole;
 import org.example.util.CompanyCodeGenerator;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -121,9 +122,13 @@ public class AuthService {
         } while (companyRepository.existsByCode(code));
 
         // Company oluştur
+        Company merkez = companyRepository.findFirstByBranchType(BranchType.MERKEZ).orElse(null);
+
         Company company = Company.builder()
                 .name(request.companyName())
                 .code(code)
+                .branchType(merkez == null ? BranchType.MERKEZ : BranchType.SUBE)
+                .parentCompanyId(merkez != null ? merkez.getId() : null)
                 .createdAt(LocalDateTime.now())
                 .build();
 

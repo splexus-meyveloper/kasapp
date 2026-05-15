@@ -3,13 +3,16 @@ package org.example.service;
 import org.example.dto.response.DashboardResponse;
 import org.example.repository.CashTransactionRepository;
 import org.example.repository.CheckRepository;
+import org.example.repository.CompanyRepository;
+import org.example.repository.InterBranchTransferRepository;
 import org.example.repository.LoanRepository;
 import org.example.repository.NoteRepository;
+import org.example.repository.UserRepository;
 import org.example.skills.enums.TransactionType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
@@ -23,12 +26,18 @@ class DashboardServiceTest {
     private final LoanRepository loanRepository = mock(LoanRepository.class);
     private final CashTransactionRepository cashRepository = mock(CashTransactionRepository.class);
     private final CheckRepository checkRepository = mock(CheckRepository.class);
+    private final CompanyRepository companyRepository = mock(CompanyRepository.class);
+    private final InterBranchTransferRepository transferRepository = mock(InterBranchTransferRepository.class);
+    private final UserRepository userRepository = mock(UserRepository.class);
 
     private final DashboardService service = new DashboardService(
             noteRepository,
             loanRepository,
             cashRepository,
-            checkRepository
+            checkRepository,
+            companyRepository,
+            transferRepository,
+            userRepository
     );
 
     @Test
@@ -42,8 +51,10 @@ class DashboardServiceTest {
         when(cashRepository.sumTodayExpenseByUser(
                 eq(companyId), eq(userId), eq(TransactionType.EXPENSE), any(), any()))
                 .thenReturn(new BigDecimal("3500.00"));
-        when(cashRepository.balance(eq(companyId), eq(TransactionType.INCOME)))
+        when(cashRepository.balance(eq(companyId)))
                 .thenReturn(new BigDecimal("25000.00"));
+        when(cashRepository.sumByDayAndType(eq(companyId), any(), any()))
+                .thenReturn(List.of());
         when(checkRepository.getPortfolioTotal(companyId))
                 .thenReturn(new BigDecimal("50000.00"));
         when(loanRepository.sumRemainingDebtByCompanyId(companyId))

@@ -6,6 +6,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.example.entity.User;
+import org.example.repository.UserRepository;
 import org.example.skills.Jwt.JwtService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -22,6 +24,7 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -50,6 +53,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String role = jwt.getClaim("role").asString();
             List<String> permissions =
                     jwt.getClaim("permissions").asList(String.class);
+
+            User dbUser = userRepository.findById(userId)
+                    .filter(User::isActive)
+                    .orElseThrow(() -> new RuntimeException("Inactive or missing user"));
+
+            username = dbUser.getUsername();
+            companyId = dbUser.getCompanyId();
+            role = dbUser.getRole().name();
 
             // Authorities oluştur
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();

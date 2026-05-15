@@ -8,6 +8,7 @@ import org.example.dto.response.TransferResponse;
 import org.example.security.CustomUserDetails;
 import org.example.service.InterBranchTransferService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +31,7 @@ public class InterBranchTransferController {
     }
 
     /** Admin: bekleyen transferleri onayla */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/approve")
     public ResponseEntity<TransferResponse> approve(
             @Valid @RequestBody TransferActionRequest req,
@@ -39,6 +41,7 @@ public class InterBranchTransferController {
     }
 
     /** Admin: reddet */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/reject")
     public ResponseEntity<TransferResponse> reject(
             @Valid @RequestBody TransferActionRequest req,
@@ -55,12 +58,14 @@ public class InterBranchTransferController {
     }
 
     /** Admin: bekleyen transferler */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/pending")
     public List<TransferResponse> pending() {
         return service.getPendingTransfers();
     }
 
     /** Admin: tüm transferler */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/all")
     public List<TransferResponse> all() {
         return service.getAllTransfers();

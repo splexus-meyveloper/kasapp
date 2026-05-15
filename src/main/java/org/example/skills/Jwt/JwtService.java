@@ -7,8 +7,10 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import org.example.entity.Company;
 import org.example.entity.User;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -23,8 +25,16 @@ public class JwtService {
 
     public JwtService(
             @Value("${kasadeneme3.jwt.secret-key}") String secret,
-            @Value("${kasadeneme3.jwt.issuer}") String issuer
+            @Value("${kasadeneme3.jwt.issuer}") String issuer,
+            Environment environment
     ) {
+        if (secret == null || secret.isBlank()) {
+            boolean devProfile = Arrays.asList(environment.getActiveProfiles()).contains("dev");
+            if (!devProfile) {
+                throw new IllegalStateException("KASADENEME3_JWT_SECRET_KEY must be set outside dev profile");
+            }
+            secret = "DEV_ONLY_CHANGE_IN_PRODUCTION_MIN32CH";
+        }
         this.algorithm = Algorithm.HMAC256(secret);
         this.issuer = issuer;
         this.verifier = JWT.require(algorithm)
