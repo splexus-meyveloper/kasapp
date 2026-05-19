@@ -27,6 +27,9 @@ public class MyActivityDto {
     private Long entityId;
     private String entityType;
 
+    private String oldData;
+    private String newData;
+
     private String expenseType;
     private String paymentMethod;
     private AuditDetails detailsJson;

@@ -4,7 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.*;
 import org.example.dto.response.CheckListResponse;
-import org.example.entity.Check;
+import org.example.dto.response.PageResponse;
 import org.example.security.CustomUserDetails;
 import org.example.service.CheckService;
 import org.springframework.http.ResponseEntity;
@@ -88,10 +88,12 @@ public class CheckController {
         return service.getPortfolioChecks(user.getCompanyId());
     }
 
-    /** Tüm çekler — frontend filtre yapar */
+    /** Tüm çekler — sayfalama destekli. Merkez admin tüm şubeleri görür. */
     @GetMapping("/all")
-    public List<CheckListResponse> all(
-            @AuthenticationPrincipal CustomUserDetails user) {
-        return service.getAllChecks(user.getCompanyId());
+    public PageResponse<CheckListResponse> all(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return service.getAllChecks(user.getCompanyId(), user.getRole(), page, size);
     }
 }

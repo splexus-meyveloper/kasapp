@@ -13,7 +13,11 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ public class InterBranchTransferService {
     private final CashService                   cashService;
     private final CompanyRepository             companyRepo;
     private final RealtimeEventService          realtimeEventService;
+    private final AuditService                  auditService;
 
     // ─────────────────────────────────────────────────────────
     // TRANSFER OLUŞTUR
@@ -142,14 +147,52 @@ public class InterBranchTransferService {
         realtimeEventService.publish("TRANSFER", "TRANSFER_CREATED", sourceCompanyId, transfer.getId());
         realtimeEventService.publish("TRANSFER", "TRANSFER_CREATED", merkez.getId(), transfer.getId());
 
+        String typeLabel = switch (req.transferType()) {
+            case NAKIT_GONDERIM -> "Nakit Gönderim";
+            case BANKA_YATIRMA  -> "Banka Yatırma";
+            case CEK_SENET      -> "Çek/Senet";
+        };
+        int checkCount = req.checkIds() != null ? req.checkIds().size() : 0;
+        int noteCount  = req.noteIds()  != null ? req.noteIds().size()  : 0;
+
+        Map<String, Object> logPayload = new HashMap<>();
+        logPayload.put("transferId",   transfer.getId());
+        logPayload.put("transferType", req.transferType().name());
+        logPayload.put("sourceName",   sourceCompany.getName());
+        logPayload.put("targetName",   merkez.getName());
+        logPayload.put("status",       TransferStatus.PENDING.name());
+        if (checkCount > 0) logPayload.put("checkCount", checkCount);
+        if (noteCount  > 0) logPayload.put("noteCount",  noteCount);
+
+        String logDesc = sourceCompany.getName() + " → " + merkez.getName()
+                + " • " + typeLabel + " • Transfer #" + transfer.getId();
+
+        // Kaynak şube için log (oluşturan kullanıcı my-actions'da görür)
+        auditService.logTransfer(
+                AuditAction.INTER_BRANCH_TRANSFER_CREATED,
+                transfer.getId(), userId, sourceCompanyId,
+                toplamTutar, logDesc, logPayload);
+        // Merkez için de log (admin kasa hareketleri'nde görünür)
+        auditService.logTransfer(
+                AuditAction.INTER_BRANCH_TRANSFER_CREATED,
+                transfer.getId(), userId, merkez.getId(),
+                toplamTutar, logDesc, logPayload);
+
         return toResponse(transfer);
     }
 
     // ─────────────────────────────────────────────────────────
-    // ONAYLA (Sadece Admin)
+    // ONAYLA (Sadece Merkez Admin)
     // ─────────────────────────────────────────────────────────
     @Transactional
     public TransferResponse approve(TransferActionRequest req, Long adminUserId, Long adminCompanyId) {
+
+        Company merkez = companyRepo.findFirstByBranchType(BranchType.MERKEZ)
+                .orElseThrow(() -> new RuntimeException("Merkez şube bulunamadı"));
+
+        if (!adminCompanyId.equals(merkez.getId())) {
+            throw new RuntimeException("Transfer onayı sadece merkez yöneticisi tarafından yapılabilir");
+        }
 
         InterBranchTransfer transfer = transferRepo.findById(req.transferId())
                 .orElseThrow(() -> new RuntimeException("Transfer bulunamadı"));
@@ -222,14 +265,47 @@ public class InterBranchTransferService {
         realtimeEventService.publish("TRANSFER", "TRANSFER_APPROVED", sourceId, transfer.getId());
         realtimeEventService.publish("TRANSFER", "TRANSFER_APPROVED", targetId, transfer.getId());
 
+        String approveTypeLabel = switch (transfer.getTransferType()) {
+            case NAKIT_GONDERIM -> "Nakit Gönderim";
+            case BANKA_YATIRMA  -> "Banka Yatırma";
+            case CEK_SENET      -> "Çek/Senet";
+        };
+        Map<String, Object> approvePayload = new HashMap<>();
+        approvePayload.put("transferId",   transfer.getId());
+        approvePayload.put("transferType", transfer.getTransferType().name());
+        approvePayload.put("sourceName",   sourceName);
+        approvePayload.put("targetName",   targetName);
+        approvePayload.put("status",       TransferStatus.APPROVED.name());
+
+        String approveDesc = "Transfer #" + transfer.getId() + " onaylandı — "
+                + sourceName + " → " + targetName + " • " + approveTypeLabel;
+
+        // Admin (merkez) adına log — admin kasa hareketleri'nde görünür
+        auditService.logTransfer(
+                AuditAction.INTER_BRANCH_TRANSFER_APPROVED,
+                transfer.getId(), adminUserId, targetId,
+                transfer.getAmount(), approveDesc, approvePayload);
+        // Kaynak şube için log — oluşturan kişinin my-actions'ında görünür
+        auditService.logTransfer(
+                AuditAction.INTER_BRANCH_TRANSFER_APPROVED,
+                transfer.getId(), transfer.getCreatedBy(), sourceId,
+                transfer.getAmount(), approveDesc, approvePayload);
+
         return toResponse(transfer);
     }
 
     // ─────────────────────────────────────────────────────────
-    // REDDET (Sadece Admin)
+    // REDDET (Sadece Merkez Admin)
     // ─────────────────────────────────────────────────────────
     @Transactional
-    public TransferResponse reject(TransferActionRequest req, Long adminUserId) {
+    public TransferResponse reject(TransferActionRequest req, Long adminUserId, Long adminCompanyId) {
+
+        Company merkez = companyRepo.findFirstByBranchType(BranchType.MERKEZ)
+                .orElseThrow(() -> new RuntimeException("Merkez şube bulunamadı"));
+
+        if (!adminCompanyId.equals(merkez.getId())) {
+            throw new RuntimeException("Transfer reddi sadece merkez yöneticisi tarafından yapılabilir");
+        }
 
         InterBranchTransfer transfer = transferRepo.findById(req.transferId())
                 .orElseThrow(() -> new RuntimeException("Transfer bulunamadı"));
@@ -247,6 +323,34 @@ public class InterBranchTransferService {
         realtimeEventService.publish("TRANSFER", "TRANSFER_REJECTED",
                 transfer.getSourceCompanyId(), transfer.getId());
 
+        String rejectSourceName = companyRepo.findById(transfer.getSourceCompanyId())
+                .map(Company::getName).orElse("Kaynak Şube");
+        String rejectTargetName = companyRepo.findById(transfer.getTargetCompanyId())
+                .map(Company::getName).orElse("Hedef Şube");
+
+        Map<String, Object> rejectPayload = new HashMap<>();
+        rejectPayload.put("transferId",   transfer.getId());
+        rejectPayload.put("transferType", transfer.getTransferType().name());
+        rejectPayload.put("sourceName",   rejectSourceName);
+        rejectPayload.put("targetName",   rejectTargetName);
+        rejectPayload.put("status",       TransferStatus.REJECTED.name());
+        if (req.rejectReason() != null) rejectPayload.put("rejectReason", req.rejectReason());
+
+        String rejectDesc = "Transfer #" + transfer.getId() + " reddedildi — " + rejectSourceName
+                + (req.rejectReason() != null && !req.rejectReason().isBlank()
+                   ? " • " + req.rejectReason() : "");
+
+        // Admin (merkez) adına log — admin kasa hareketleri'nde görünür
+        auditService.logTransfer(
+                AuditAction.INTER_BRANCH_TRANSFER_REJECTED,
+                transfer.getId(), adminUserId, adminCompanyId,
+                transfer.getAmount(), rejectDesc, rejectPayload);
+        // Kaynak şube için log — oluşturan kişinin my-actions'ında görünür
+        auditService.logTransfer(
+                AuditAction.INTER_BRANCH_TRANSFER_REJECTED,
+                transfer.getId(), transfer.getCreatedBy(), transfer.getSourceCompanyId(),
+                transfer.getAmount(), rejectDesc, rejectPayload);
+
         return toResponse(transfer);
     }
 
@@ -254,46 +358,115 @@ public class InterBranchTransferService {
     // LİSTELEME
     // ─────────────────────────────────────────────────────────
 
+    public TransferResponse getById(Long id) {
+        InterBranchTransfer t = transferRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transfer bulunamadı"));
+        return toResponse(t);
+    }
+
     public List<TransferResponse> getMyTransfers(Long companyId) {
-        return transferRepo.findByCompanyId(companyId)
-                .stream().map(this::toResponse).toList();
+        return toResponseList(transferRepo.findByCompanyId(companyId));
     }
 
     public List<TransferResponse> getPendingTransfers() {
-        return transferRepo.findByStatusOrderByCreatedAtDesc(TransferStatus.PENDING)
-                .stream().map(this::toResponse).toList();
+        return toResponseList(transferRepo.findByStatusOrderByCreatedAtDesc(TransferStatus.PENDING));
     }
 
     public List<TransferResponse> getAllTransfers() {
-        return transferRepo.findAllOrderByCreatedAtDesc()
-                .stream().map(this::toResponse).toList();
+        return toResponseList(transferRepo.findAllOrderByCreatedAtDesc());
     }
 
     // ─────────────────────────────────────────────────────────
     // YARDIMCI
     // ─────────────────────────────────────────────────────────
-    private TransferResponse toResponse(InterBranchTransfer t) {
 
+    // Tekil transfer → single-use (create/approve/reject dönüşleri için)
+    private TransferResponse toResponse(InterBranchTransfer t) {
         String sourceName = companyRepo.findById(t.getSourceCompanyId())
                 .map(Company::getName).orElse("Bilinmiyor");
         String targetName = companyRepo.findById(t.getTargetCompanyId())
                 .map(Company::getName).orElse("Bilinmiyor");
 
         List<TransferCheckItem> items = itemRepo.findByTransferId(t.getId());
-        List<TransferResponse.TransferItemDetail> details = new ArrayList<>();
+        List<TransferResponse.TransferItemDetail> details = buildItemDetails(items,
+                fetchCheckMap(items), fetchNoteMap(items));
 
+        return buildResponse(t, sourceName, targetName, details);
+    }
+
+    // Liste dönüşümü — N+1 yok, tüm veriler toplu çekilir
+    private List<TransferResponse> toResponseList(List<InterBranchTransfer> transfers) {
+        if (transfers.isEmpty()) return List.of();
+
+        // Şirket adlarını tek sorguda çek
+        Set<Long> companyIds = transfers.stream()
+                .flatMap(t -> java.util.stream.Stream.of(t.getSourceCompanyId(), t.getTargetCompanyId()))
+                .collect(Collectors.toSet());
+        Map<Long, String> companyNames = companyRepo.findAllById(companyIds).stream()
+                .collect(Collectors.toMap(Company::getId, Company::getName));
+
+        // Transfer kalemlerini tek sorguda çek
+        Set<Long> transferIds = transfers.stream().map(InterBranchTransfer::getId).collect(Collectors.toSet());
+        List<TransferCheckItem> allItems = itemRepo.findByTransferIdIn(transferIds);
+        Map<Long, List<TransferCheckItem>> itemsByTransfer = allItems.stream()
+                .collect(Collectors.groupingBy(TransferCheckItem::getTransferId));
+
+        // Çek ve senet detaylarını toplu çek
+        Map<Long, org.example.entity.Check> checkMap = fetchCheckMap(allItems);
+        Map<Long, org.example.entity.Note> noteMap = fetchNoteMap(allItems);
+
+        return transfers.stream().map(t -> {
+            String sourceName = companyNames.getOrDefault(t.getSourceCompanyId(), "Bilinmiyor");
+            String targetName = companyNames.getOrDefault(t.getTargetCompanyId(), "Bilinmiyor");
+            List<TransferCheckItem> items = itemsByTransfer.getOrDefault(t.getId(), List.of());
+            List<TransferResponse.TransferItemDetail> details = buildItemDetails(items, checkMap, noteMap);
+            return buildResponse(t, sourceName, targetName, details);
+        }).toList();
+    }
+
+    private Map<Long, org.example.entity.Check> fetchCheckMap(List<TransferCheckItem> items) {
+        Set<Long> ids = items.stream()
+                .filter(i -> "CHECK".equals(i.getItemType()))
+                .map(TransferCheckItem::getItemId)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return checkRepo.findAllById(ids).stream()
+                .collect(Collectors.toMap(org.example.entity.Check::getId, c -> c));
+    }
+
+    private Map<Long, org.example.entity.Note> fetchNoteMap(List<TransferCheckItem> items) {
+        Set<Long> ids = items.stream()
+                .filter(i -> "NOTE".equals(i.getItemType()))
+                .map(TransferCheckItem::getItemId)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return noteRepo.findAllById(ids).stream()
+                .collect(Collectors.toMap(org.example.entity.Note::getId, n -> n));
+    }
+
+    private List<TransferResponse.TransferItemDetail> buildItemDetails(
+            List<TransferCheckItem> items,
+            Map<Long, org.example.entity.Check> checkMap,
+            Map<Long, org.example.entity.Note> noteMap) {
+
+        List<TransferResponse.TransferItemDetail> details = new ArrayList<>();
         for (TransferCheckItem item : items) {
             if ("CHECK".equals(item.getItemType())) {
-                checkRepo.findById(item.getItemId()).ifPresent(c ->
-                        details.add(new TransferResponse.TransferItemDetail(
-                                c.getId(), "CHECK", c.getCheckNo(), c.getAmount())));
+                org.example.entity.Check c = checkMap.get(item.getItemId());
+                if (c != null) details.add(new TransferResponse.TransferItemDetail(
+                        c.getId(), "CHECK", c.getCheckNo(), c.getAmount()));
             } else {
-                noteRepo.findById(item.getItemId()).ifPresent(n ->
-                        details.add(new TransferResponse.TransferItemDetail(
-                                n.getId(), "NOTE", n.getNoteNo(), n.getAmount())));
+                org.example.entity.Note n = noteMap.get(item.getItemId());
+                if (n != null) details.add(new TransferResponse.TransferItemDetail(
+                        n.getId(), "NOTE", n.getNoteNo(), n.getAmount()));
             }
         }
+        return details;
+    }
 
+    private TransferResponse buildResponse(InterBranchTransfer t,
+                                           String sourceName, String targetName,
+                                           List<TransferResponse.TransferItemDetail> details) {
         return new TransferResponse(
                 t.getId(),
                 t.getSourceCompanyId(), sourceName,

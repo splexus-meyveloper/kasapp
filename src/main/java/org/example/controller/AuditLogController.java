@@ -83,6 +83,41 @@ public class AuditLogController {
         );
     }
 
+    /** Merkez admin: tüm şubelerin transfer logları (companyId filtresi yok) */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/transfers")
+    public PageResponse<AuditLogResponse> listTransfers(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+            Pageable pageable
+    ) {
+        Specification<AuditLog> spec = Specification
+                .where(AuditLogSpecifications.entityTypeEquals("TRANSFER"))
+                .and(AuditLogSpecifications.usernameContains(username))
+                .and(AuditLogSpecifications.createdBetween(start, end));
+
+        int page = Math.min(Math.max(pageable.getPageNumber(), 0), MAX_PAGE_NUMBER);
+        int size = Math.min(
+                pageable.getPageSize() > 0 ? pageable.getPageSize() : DEFAULT_PAGE_SIZE,
+                MAX_PAGE_SIZE
+        );
+        Pageable safePageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt")));
+
+        Page<AuditLogResponse> pageResult =
+                repo.findAll(spec, safePageable).map(AuditLogResponse::from);
+
+        return new PageResponse<>(
+                pageResult.getContent(),
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages()
+        );
+    }
+
     /** Normal kullanıcı kendi loglarını görür — yetki kontrolü yok, herkes erişebilir */
     @GetMapping("/my-actions")
     public PageResponse<AuditLogResponse> getMyActions(

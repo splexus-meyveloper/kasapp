@@ -3,6 +3,8 @@ package org.example.repository;
 import org.example.entity.Check;
 import org.example.skills.enums.Banka;
 import org.example.skills.enums.CheckStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -64,13 +66,17 @@ public interface CheckRepository extends JpaRepository<Check,Long> {
             java.util.Collection<CheckStatus> statuses
     );
 
-    // Tüm çekler (filtreli liste için)
+    // Tüm çekler (filtreli liste için) — sayfalama ile
     @Query("""
         SELECT c FROM Check c
         WHERE c.companyId = :companyId
         ORDER BY c.createdAt DESC
     """)
-    List<Check> findAllByCompanyIdOrderByCreatedAtDesc(Long companyId);
+    Page<Check> findAllByCompanyIdOrderByCreatedAtDesc(Long companyId, Pageable pageable);
+
+    // Merkez admin — tüm şubelerin çekleri
+    @Query("SELECT c FROM Check c ORDER BY c.createdAt DESC")
+    Page<Check> findAllOrderByCreatedAtDesc(Pageable pageable);
 
     // Vadesi yaklaşan çekler (x gün içinde)
     @Query("""

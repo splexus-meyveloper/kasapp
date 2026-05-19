@@ -59,7 +59,7 @@ public class ExpenseService {
         realtimeEventService.publish("MASRAF", "EXPENSE_ADD", companyId, expense.getId());
 
         if (paymentMethod == ExpensePaymentMethod.CASH) {
-            cashService.addExpenseFromExpenseModule(
+            cashService.addExpense(
                     req.amount(),
                     req.expenseType().name() + " - " + aciklama,
                     userId,

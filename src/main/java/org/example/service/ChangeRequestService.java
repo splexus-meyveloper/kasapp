@@ -18,9 +18,11 @@ import org.example.exception.KasappException;
 import org.example.repository.CashTransactionRepository;
 import org.example.repository.ChangeRequestRepository;
 import org.example.repository.CheckRepository;
+import org.example.repository.CompanyRepository;
 import org.example.repository.NoteRepository;
 import org.example.repository.PosLogRepository;
 import org.example.repository.UserRepository;
+import org.example.skills.enums.BranchType;
 import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.ChangeRequestAction;
 import org.example.skills.enums.ChangeRequestStatus;
@@ -45,6 +47,7 @@ public class ChangeRequestService {
     private final NoteRepository noteRepository;
     private final PosLogRepository posLogRepository;
     private final UserRepository userRepository;
+    private final CompanyRepository companyRepository;
     private final ObjectMapper objectMapper;
     private final AuditService auditService;
 
@@ -135,8 +138,10 @@ public class ChangeRequestService {
     @Transactional(readOnly = true)
     public List<ChangeRequestResponseDto> getPendingRequests(Long companyId) {
 
-        List<ChangeRequest> requests = changeRequestRepository
-                .findByCompanyIdAndStatusOrderByRequestedAtDesc(companyId, ChangeRequestStatus.PENDING);
+        // Merkez admin tüm şubelerin taleplerini görebilir
+        List<ChangeRequest> requests = isMerkez(companyId)
+                ? changeRequestRepository.findByStatusOrderByRequestedAtDesc(ChangeRequestStatus.PENDING)
+                : changeRequestRepository.findByCompanyIdAndStatusOrderByRequestedAtDesc(companyId, ChangeRequestStatus.PENDING);
 
         if (requests.isEmpty()) return List.of();
 
@@ -175,10 +180,11 @@ public class ChangeRequestService {
         if (request.getStatus() != ChangeRequestStatus.PENDING)
             throw new KasappException(ErrorType.CHANGE_REQUEST_ALREADY_PROCESSED);
 
-        if (!request.getCompanyId().equals(companyId))
+        // Merkez admin herhangi bir şubenin talebini onaylayabilir
+        if (!isMerkez(companyId) && !request.getCompanyId().equals(companyId))
             throw new KasappException(ErrorType.CHANGE_REQUEST_ACCESS_DENIED);
 
-        applyChange(request, companyId);
+        applyChange(request, request.getCompanyId());
 
         request.setStatus(ChangeRequestStatus.APPROVED);
         request.setApprovedBy(adminId);
@@ -200,7 +206,8 @@ public class ChangeRequestService {
         if (request.getStatus() != ChangeRequestStatus.PENDING)
             throw new KasappException(ErrorType.CHANGE_REQUEST_ALREADY_PROCESSED);
 
-        if (!request.getCompanyId().equals(companyId))
+        // Merkez admin herhangi bir şubenin talebini reddedebilir
+        if (!isMerkez(companyId) && !request.getCompanyId().equals(companyId))
             throw new KasappException(ErrorType.CHANGE_REQUEST_ACCESS_DENIED);
 
         request.setStatus(ChangeRequestStatus.REJECTED);
@@ -210,7 +217,7 @@ public class ChangeRequestService {
 
         AuditAction action = resolveRejectAction(request.getEntityType());
         logAudit(action, request.getEntityType(), request.getEntityId(),
-                adminId, request.getCompanyId(), request);
+                adminId, companyId, request);
     }
 
     // ── Yardımcılar ───────────────────────────────────────────────────────
@@ -397,5 +404,11 @@ public class ChangeRequestService {
             case "POS"   -> AuditAction.POS_UPDATE_REQUEST_REJECTED;
             default      -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         };
+    }
+
+    private boolean isMerkez(Long companyId) {
+        return companyRepository.findFirstByBranchType(BranchType.MERKEZ)
+                .map(c -> c.getId().equals(companyId))
+                .orElse(false);
     }
 }

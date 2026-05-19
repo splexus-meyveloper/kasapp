@@ -41,6 +41,13 @@ public class AuditLogSpecifications {
                         : cb.like(cb.lower(root.get("description")), "%" + q.toLowerCase() + "%");
     }
 
+    public static Specification<AuditLog> entityTypeEquals(String entityType) {
+        return (root, query, cb) ->
+                entityType == null || entityType.isBlank()
+                        ? cb.conjunction()
+                        : cb.equal(root.get("entityType"), entityType);
+    }
+
     public static Specification<AuditLog> createdBetween(LocalDateTime start, LocalDateTime end) {
         return (root, query, cb) -> {
             if (start == null && end == null) return cb.conjunction();

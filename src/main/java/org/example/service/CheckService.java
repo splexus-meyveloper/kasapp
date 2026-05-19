@@ -5,9 +5,15 @@ import lombok.RequiredArgsConstructor;
 import org.example.audit.Audit;
 import org.example.dto.request.*;
 import org.example.dto.response.CheckListResponse;
+import org.example.dto.response.PageResponse;
 import org.example.entity.Check;
+import org.example.entity.Company;
 import org.example.repository.CheckRepository;
+import org.example.repository.CompanyRepository;
 import org.example.skills.enums.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,6 +26,7 @@ public class CheckService {
     private final CheckRepository repository;
     private final CashService cashService;
     private final RealtimeEventService realtimeEventService;
+    private final CompanyRepository companyRepository;
 
     // ─────────────────────────────────────────────────────────
     // ÇEK GİRİŞİ — kasa bakiyesine DOKUNMAZ
@@ -76,7 +83,7 @@ public class CheckService {
         check.setDescription(aciklama);
 
         if (collectType == CollectType.CASH) {
-            cashService.addIncomeFromModule(check.getAmount(), aciklama, userId, companyId);
+            cashService.addIncome(check.getAmount(), aciklama, userId, check.getCompanyId());
         }
 
         repository.save(check);
@@ -134,7 +141,7 @@ public class CheckService {
         // Nakit tahsil edilmişse kasadan geri çıkar
         if (oncekiStatus == CheckStatus.TAHSIL_EDILDI) {
             String geriAlDesc = "Çek iadesi — kasadan düşüldü • " + check.getCheckNo();
-            cashService.addExpense(check.getAmount(), geriAlDesc, userId, companyId);
+            cashService.addExpense(check.getAmount(), geriAlDesc, userId, check.getCompanyId());
         }
 
         check.setStatus(CheckStatus.PORTFOYDE);
@@ -171,7 +178,7 @@ public class CheckService {
         // Tahsil edilmiş ama karşılıksız çıktıysa kasadan geri al
         if (check.getStatus() == CheckStatus.TAHSIL_EDILDI) {
             String geriAlDesc = req.badStatus().name() + " — tahsilat iptal • " + check.getCheckNo();
-            cashService.addExpense(check.getAmount(), geriAlDesc, userId, companyId);
+            cashService.addExpense(check.getAmount(), geriAlDesc, userId, check.getCompanyId());
         }
 
         check.setStatus(req.badStatus());
@@ -256,22 +263,54 @@ public class CheckService {
     // LİSTELEME
     // ─────────────────────────────────────────────────────────
 
+    private static final int DEFAULT_PAGE_SIZE = 50;
+    private static final int MAX_PAGE_SIZE     = 200;
+
     public List<CheckListResponse> getPortfolioChecks(Long companyId) {
         return repository
                 .findByStatusAndCompanyId(CheckStatus.PORTFOYDE, companyId)
                 .stream().map(this::toResponse).toList();
     }
 
-    public List<CheckListResponse> getAllChecks(Long companyId) {
-        return repository
-                .findAllByCompanyIdOrderByCreatedAtDesc(companyId)
-                .stream().map(this::toResponse).toList();
+    public PageResponse<CheckListResponse> getAllChecks(Long companyId, String role, int page, int size) {
+        int safeSize = Math.min(size > 0 ? size : DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+        int safePage = Math.max(page, 0);
+
+        PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Order.desc("createdAt")));
+
+        boolean isMerkezAdmin = false;
+        if ("ADMIN".equals(role)) {
+            Company merkez = companyRepository.findFirstByBranchType(BranchType.MERKEZ).orElse(null);
+            isMerkezAdmin = merkez != null && merkez.getId().equals(companyId);
+        }
+
+        Page<Check> result = isMerkezAdmin
+                ? repository.findAllOrderByCreatedAtDesc(pageable)
+                : repository.findAllByCompanyIdOrderByCreatedAtDesc(companyId, pageable);
+
+        return new PageResponse<>(
+                result.getContent().stream().map(this::toResponse).toList(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
     }
 
     // ─────────────────────────────────────────────────────────
     // YARDIMCI
     // ─────────────────────────────────────────────────────────
+    private boolean isMerkezCompany(Long companyId) {
+        return companyRepository.findFirstByBranchType(BranchType.MERKEZ)
+                .map(c -> c.getId().equals(companyId))
+                .orElse(false);
+    }
+
     private Check getCheckOrThrow(Long id, Long companyId) {
+        if (isMerkezCompany(companyId)) {
+            return repository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Çek bulunamadı"));
+        }
         return repository
                 .findByIdAndCompanyId(id, companyId)
                 .orElseThrow(() -> new RuntimeException("Çek bulunamadı"));
@@ -281,7 +320,7 @@ public class CheckService {
         return new CheckListResponse(
                 c.getId(), c.getCheckNo(), c.getBank(), c.getDueDate(),
                 c.getAmount(), c.getDescription(), c.getStatus(),
-                c.getCheckType(), c.getCreatedAt()
+                c.getCheckType(), c.getCreatedAt(), c.getCompanyId()
         );
     }
 }

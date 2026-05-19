@@ -19,6 +19,8 @@ import org.aspectj.lang.annotation.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.example.skills.enums.CashDirection;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -202,7 +204,17 @@ public class AuditAspect {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        auditLogRepository.save(log);
+        // Aktif bir transaction varsa, onun commit'inden önce (aynı transaction içinde) kaydet
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void beforeCommit(boolean readOnly) {
+                    auditLogRepository.save(log);
+                }
+            });
+        } else {
+            auditLogRepository.save(log);
+        }
 
         return result;
     }

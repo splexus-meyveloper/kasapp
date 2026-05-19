@@ -6,6 +6,7 @@ import org.example.audit.Audit;
 import org.example.dto.request.*;
 import org.example.dto.response.NoteListResponse;
 import org.example.entity.Note;
+import org.example.repository.CompanyRepository;
 import org.example.repository.NoteRepository;
 import org.example.skills.enums.*;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class NoteService {
     private final NoteRepository repository;
     private final CashService cashService;
     private final RealtimeEventService realtimeEventService;
+    private final CompanyRepository companyRepository;
 
     // ─────────────────────────────────────────────────────────
     // SENET GİRİŞİ — kasa bakiyesine DOKUNMAZ
@@ -65,7 +67,7 @@ public class NoteService {
         };
         note.setDescription(aciklama);
         if (collectType == CollectType.CASH) {
-            cashService.addIncomeFromModule(note.getAmount(), aciklama, userId, companyId);
+            cashService.addIncome(note.getAmount(), aciklama, userId, note.getCompanyId());
         }
         repository.save(note);
         realtimeEventService.publish("SENET", "NOTE_COLLECT", companyId, note.getId());
@@ -109,7 +111,7 @@ public class NoteService {
         NoteStatus onceki = note.getStatus();
         if (onceki == NoteStatus.TAHSIL_EDILDI) {
             cashService.addExpense(note.getAmount(),
-                    "Senet iadesi — kasadan düşüldü • " + note.getNoteNo(), userId, companyId);
+                    "Senet iadesi — kasadan düşüldü • " + note.getNoteNo(), userId, note.getCompanyId());
         }
         note.setStatus(NoteStatus.PORTFOYDE);
         String desc = "İade edildi (önceki: " + onceki.name() + ")";
@@ -133,7 +135,7 @@ public class NoteService {
         }
         if (note.getStatus() == NoteStatus.TAHSIL_EDILDI) {
             cashService.addExpense(note.getAmount(),
-                    "Protestolu — tahsilat iptal • " + note.getNoteNo(), userId, companyId);
+                    "Protestolu — tahsilat iptal • " + note.getNoteNo(), userId, note.getCompanyId());
         }
         note.setStatus(NoteStatus.PROTESTOLU);
         String desc = "Protestolu";
@@ -175,11 +177,12 @@ public class NoteService {
     // LİSTELEME
     // ─────────────────────────────────────────────────────────
 
-    /** Tüm senetler — filtre frontend'de */
+    /** Tüm senetler — filtre frontend'de. Merkez admin tüm şubeleri görür. */
     public List<NoteListResponse> getAllNotes(Long companyId) {
-        return repository
-                .findAllByCompanyIdOrderByCreatedAtDesc(companyId)
-                .stream().map(this::toResponse).toList();
+        List<Note> notes = isMerkezCompany(companyId)
+                ? repository.findAllOrderByCreatedAtDesc()
+                : repository.findAllByCompanyIdOrderByCreatedAtDesc(companyId);
+        return notes.stream().map(this::toResponse).toList();
     }
 
     /** Sadece portföyde olanlar — eski endpoint uyumluluğu */
@@ -192,7 +195,17 @@ public class NoteService {
     // ─────────────────────────────────────────────────────────
     // YARDIMCI
     // ─────────────────────────────────────────────────────────
+    private boolean isMerkezCompany(Long companyId) {
+        return companyRepository.findFirstByBranchType(BranchType.MERKEZ)
+                .map(c -> c.getId().equals(companyId))
+                .orElse(false);
+    }
+
     private Note getNoteOrThrow(Long id, Long companyId) {
+        if (isMerkezCompany(companyId)) {
+            return repository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Senet bulunamadı"));
+        }
         return repository.findByIdAndCompanyId(id, companyId)
                 .orElseThrow(() -> new RuntimeException("Senet bulunamadı"));
     }
@@ -202,7 +215,7 @@ public class NoteService {
                 n.getId(), n.getNoteNo(),
                 n.getEndorsedTo(),   // debtor alanı olarak kullanılıyor
                 n.getDueDate(), n.getAmount(), n.getDescription(),
-                n.getStatus(), n.getCreatedAt()
+                n.getStatus(), n.getCreatedAt(), n.getCompanyId()
         );
     }
 }

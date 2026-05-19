@@ -114,6 +114,8 @@ public class MyActivityService {
                         .date(req.getRequestedAt() != null ? req.getRequestedAt() : LocalDateTime.now())
                         .entityId(req.getEntityId())
                         .entityType(req.getEntityType())
+                        .oldData(req.getOldData())
+                        .newData(req.getNewData())
                         .build());
             }
         }

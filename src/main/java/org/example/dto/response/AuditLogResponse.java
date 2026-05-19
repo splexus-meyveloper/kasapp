@@ -18,7 +18,9 @@ public record AuditLogResponse(
         LocalDateTime createdAt,
         String expenseType,
         String paymentMethod,
-        AuditDetails detailsJson
+        AuditDetails detailsJson,
+        Long entityId,
+        String entityType
 ) {
     public static AuditLogResponse from(AuditLog log) {
         Map<String, Object> payload = log.getDetailsJson() != null ? log.getDetailsJson().getPayload() : null;
@@ -33,7 +35,9 @@ public record AuditLogResponse(
                 log.getCreatedAt(),
                 stringValue(payload, "expenseType"),
                 stringValue(payload, "paymentMethod"),
-                log.getDetailsJson()
+                log.getDetailsJson(),
+                log.getEntityId(),
+                log.getEntityType()
         );
     }
 

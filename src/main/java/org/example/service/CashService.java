@@ -51,26 +51,6 @@ public class CashService {
         return tx;
     }
 
-    @Audit(action = AuditAction.CASH_EXPENSE, cash = CashDirection.OUT)
-    @Transactional
-    public CashTransaction addExpenseFromExpenseModule(@AuditAmount BigDecimal amount,
-                                                       @AuditDesc String description,
-                                                       Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false);
-        realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
-        return tx;
-    }
-
-    @Audit(action = AuditAction.CASH_INCOME, cash = CashDirection.IN)
-    @Transactional
-    public CashTransaction addIncomeFromModule(@AuditAmount BigDecimal amount,
-                                               @AuditDesc String description,
-                                               Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, false);
-        realtimeEventService.publish("KASA", "CASH_INCOME", companyId, tx.getId());
-        return tx;
-    }
-
     @Transactional
     public CashTransaction addTransferIncome(BigDecimal amount, String description, Long userId, Long companyId) {
         CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, true);
@@ -109,11 +89,6 @@ public class CashService {
                 result.getTotalElements(),
                 result.getTotalPages()
         );
-    }
-
-    private CashTransaction createTransaction(TransactionType type, BigDecimal amount,
-                                              String description, Long userId, Long companyId) {
-        return createTransaction(type, amount, description, userId, companyId, false);
     }
 
     private CashTransaction createTransaction(TransactionType type, BigDecimal amount,

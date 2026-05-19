@@ -9,5 +9,7 @@ public interface TransferCheckItemRepository extends JpaRepository<TransferCheck
 
     List<TransferCheckItem> findByTransferId(Long transferId);
 
+    List<TransferCheckItem> findByTransferIdIn(java.util.Collection<Long> transferIds);
+
     void deleteByTransferId(Long transferId);
 }

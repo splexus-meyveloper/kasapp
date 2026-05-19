@@ -30,6 +30,10 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     """)
     List<Note> findAllByCompanyIdOrderByCreatedAtDesc(Long companyId);
 
+    // Merkez admin — tüm şubelerin senetleri
+    @Query("SELECT n FROM Note n ORDER BY n.createdAt DESC")
+    List<Note> findAllOrderByCreatedAtDesc();
+
     @Query("""
         SELECT COALESCE(SUM(n.amount),0)
         FROM Note n

@@ -14,5 +14,6 @@ public record NoteListResponse(
         BigDecimal amount,
         String description,
         NoteStatus status,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Long companyId
 ) {}

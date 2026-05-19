@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -38,6 +39,45 @@ public class AuditService {
         );
 
         return repository.findByUsernameOrderByCreatedAtDesc(username, pageable);
+    }
+
+    public void logTransfer(
+            AuditAction action,
+            Long transferId,
+            Long userId,
+            Long companyId,
+            BigDecimal amount,
+            String description,
+            Map<String, Object> payload
+    ) {
+        User user = userRepository.findById(userId).orElse(null);
+        String username = user != null ? user.getUsername() : "UNKNOWN";
+
+        AuditDetails details = AuditDetails.builder()
+                .action(action.name())
+                .amount(amount)
+                .description(description)
+                .userId(userId)
+                .username(username)
+                .time(LocalDateTime.now())
+                .payload(payload)
+                .build();
+
+        AuditLog log = AuditLog.builder()
+                .action(action.name())
+                .entityType("TRANSFER")
+                .entityId(transferId)
+                .userId(userId)
+                .username(username)
+                .companyId(companyId)
+                .cashDirection(AuditDirectionResolver.resolve(action.name()))
+                .amount(amount)
+                .description(description)
+                .createdAt(LocalDateTime.now())
+                .detailsJson(details)
+                .build();
+
+        repository.save(log);
     }
 
     public void log(

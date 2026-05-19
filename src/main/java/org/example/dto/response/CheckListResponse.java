@@ -17,5 +17,6 @@ public record CheckListResponse(
         String description,
         CheckStatus status,
         CheckType checkType,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Long companyId
 ) {}

@@ -47,7 +47,15 @@ public class InterBranchTransferController {
             @Valid @RequestBody TransferActionRequest req,
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(
-                service.reject(req, user.getId()));
+                service.reject(req, user.getId(), user.getCompanyId()));
+    }
+
+    /** Tek transfer detayı — log sayfasındaki Detay butonu için */
+    @GetMapping("/{id}")
+    public ResponseEntity<TransferResponse> getById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(service.getById(id));
     }
 
     /** Kendi şubemin transferleri */
