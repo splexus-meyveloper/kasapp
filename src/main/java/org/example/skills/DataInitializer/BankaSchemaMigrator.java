@@ -25,4 +25,21 @@ public class BankaSchemaMigrator {
             log.warn("Banka islem schema migration skipped: {}", e.getMessage());
         }
     }
+
+    /**
+     * islem_kodu sütununu nullable yap — custom işlem kodları için gerekli.
+     * ddl-auto: update NOT NULL constraint'i otomatik kaldırmadığı için manuel yapıyoruz.
+     */
+    @PostConstruct
+    public void migrateIslemKoduNullable() {
+        try {
+            jdbcTemplate.execute("""
+                ALTER TABLE tbl_banka_islem
+                ALTER COLUMN islem_kodu DROP NOT NULL
+            """);
+            log.info("tbl_banka_islem.islem_kodu set to nullable.");
+        } catch (Exception e) {
+            log.warn("islem_kodu nullable migration skipped (already nullable or table not found): {}", e.getMessage());
+        }
+    }
 }

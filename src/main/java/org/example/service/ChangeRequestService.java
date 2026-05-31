@@ -102,7 +102,7 @@ public class ChangeRequestService {
 
         ChangeRequest request = buildAndSaveRequest(
                 "NOTE", existing.getId(), companyId, userId,
-                existing, new NoteUpdateRequestDto(dto.amount(), dto.description(), dto.dueDate())
+                existing, new NoteUpdateRequestDto(dto.amount(), dto.description(), dto.dueDate(), dto.noteNo())
         );
 
         logAudit(AuditAction.NOTE_UPDATE_REQUEST_CREATED, "NOTE",
@@ -132,6 +132,54 @@ public class ChangeRequestService {
 
         logAudit(AuditAction.POS_UPDATE_REQUEST_CREATED, "POS",
                 existing.getId(), userId, companyId, request);
+    }
+
+    // ── Tek talep getir ───────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public ChangeRequestResponseDto getById(Long requestId, Long companyId) {
+        ChangeRequest request = changeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
+
+        if (!isMerkez(companyId) && !request.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.CHANGE_REQUEST_ACCESS_DENIED);
+
+        Map<Long, String> usernameMap = userRepository.findUsernamesByIds(
+                Set.of(request.getRequestedBy()));
+
+        return new ChangeRequestResponseDto(
+                request.getId(), request.getEntityType(), request.getEntityId(),
+                request.getActionType(), request.getOldData(), request.getNewData(),
+                request.getRequestedBy(),
+                usernameMap.getOrDefault(request.getRequestedBy(), "Bilinmiyor"),
+                request.getRequestedAt(), request.getStatus(),
+                request.getApprovedBy(), request.getApprovedAt()
+        );
+    }
+
+    // ── Tüm talepler (PENDING + APPROVED + REJECTED) ─────────────────────
+    @Transactional(readOnly = true)
+    public List<ChangeRequestResponseDto> getAllRequests(Long companyId) {
+        List<ChangeRequest> requests = isMerkez(companyId)
+                ? changeRequestRepository.findAllByOrderByRequestedAtDesc()
+                : changeRequestRepository.findByCompanyIdOrderByRequestedAtDesc(companyId);
+
+        if (requests.isEmpty()) return List.of();
+
+        Set<Long> userIds = requests.stream()
+                .map(ChangeRequest::getRequestedBy)
+                .collect(Collectors.toSet());
+        Map<Long, String> usernameMap = userRepository.findUsernamesByIds(userIds);
+
+        return requests.stream()
+                .map(req -> new ChangeRequestResponseDto(
+                        req.getId(), req.getEntityType(), req.getEntityId(),
+                        req.getActionType(), req.getOldData(), req.getNewData(),
+                        req.getRequestedBy(),
+                        usernameMap.getOrDefault(req.getRequestedBy(), "Bilinmiyor"),
+                        req.getRequestedAt(), req.getStatus(),
+                        req.getApprovedBy(), req.getApprovedAt()
+                ))
+                .toList();
     }
 
     // ── Bekleyen talepler — N+1 düzeltildi ───────────────────────────────
@@ -319,6 +367,16 @@ public class ChangeRequestService {
                     if (newData.amount() != null) existing.setAmount(newData.amount());
                     if (newData.description() != null) existing.setDescription(newData.description());
                     existing.setDueDate(newData.dueDate());
+
+                    // Senet numarası güncelleme
+                    if (newData.noteNo() != null && !newData.noteNo().isBlank()) {
+                        boolean noteNoExists = noteRepository.existsByNoteNoAndCompanyId(
+                                newData.noteNo(), companyId);
+                        if (noteNoExists && !newData.noteNo().equals(existing.getNoteNo()))
+                            throw new RuntimeException("Bu senet numarası zaten kullanılıyor");
+                        existing.setNoteNo(newData.noteNo());
+                    }
+
                     noteRepository.save(existing);
                 }
                 case "POS" -> {

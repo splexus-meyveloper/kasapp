@@ -55,7 +55,7 @@ public class InterBranchTransferController {
     public ResponseEntity<TransferResponse> getById(
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(service.getById(id));
+        return ResponseEntity.ok(service.getById(id, user.getCompanyId()));
     }
 
     /** Kendi şubemin transferleri */

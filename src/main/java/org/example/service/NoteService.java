@@ -9,6 +9,7 @@ import org.example.entity.Note;
 import org.example.repository.CompanyRepository;
 import org.example.repository.NoteRepository;
 import org.example.skills.enums.*;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -201,8 +202,16 @@ public class NoteService {
                 .orElse(false);
     }
 
+    private boolean isAdmin() {
+        return SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getAuthorities()
+                .stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
+
     private Note getNoteOrThrow(Long id, Long companyId) {
-        if (isMerkezCompany(companyId)) {
+        if (isMerkezCompany(companyId) && isAdmin()) {
             return repository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Senet bulunamadı"));
         }

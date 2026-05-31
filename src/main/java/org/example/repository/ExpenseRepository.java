@@ -2,7 +2,6 @@ package org.example.repository;
 
 import org.example.entity.Expense;
 import org.example.skills.enums.ExpensePaymentMethod;
-import org.example.skills.enums.ExpenseType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -25,7 +24,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
         ORDER BY e.expenseDate DESC, e.createdAt DESC
     """)
     List<Expense> findFiltered(Long companyId,
-                               ExpenseType expenseType,
+                               String expenseType,
                                ExpensePaymentMethod paymentMethod,
                                LocalDate start,
                                LocalDate end);

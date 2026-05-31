@@ -11,15 +11,14 @@ import org.example.audit.AuditAmount;
 import org.example.audit.AuditDesc;
 import org.example.skills.enums.AracPlaka;
 import org.example.skills.enums.ExpensePaymentMethod;
-import org.example.skills.enums.ExpenseType;
 
 import java.math.BigDecimal;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AddExpenseRequest(
 
-        @NotNull(message = "Masraf turu secilmelidir")
-        ExpenseType expenseType,
+        @NotBlank(message = "Masraf turu secilmelidir")
+        String expenseType,
 
         @NotNull(message = "Odeme yontemi secilmelidir")
         ExpensePaymentMethod paymentMethod,

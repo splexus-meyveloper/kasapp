@@ -13,9 +13,11 @@ import org.example.dto.response.BankaIslemKoduResponse;
 import org.example.dto.response.BankaIslemResponse;
 import org.example.entity.BankaHesap;
 import org.example.entity.BankaIslem;
+import org.example.entity.BankaIslemKoduCustom;
 import org.example.exception.ErrorType;
 import org.example.exception.KasappException;
 import org.example.repository.BankaHesapRepository;
+import org.example.repository.BankaIslemKoduCustomRepository;
 import org.example.repository.BankaIslemRepository;
 import org.example.skills.enums.BankaIslemKodu;
 import org.slf4j.Logger;
@@ -34,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +46,7 @@ public class BankaService {
 
     private final BankaHesapRepository hesapRepo;
     private final BankaIslemRepository islemRepo;
+    private final BankaIslemKoduCustomRepository customKodRepo;
 
     @Transactional
     public BankaHesapResponse hesapOlustur(BankaHesapOlusturRequest req,
@@ -109,9 +113,23 @@ public class BankaService {
                     continue;
                 }
 
+                // Önce built-in enum'da ara, bulamazsan custom kodlarda ara
                 BankaIslemKodu islemKodu = BankaIslemKodu.fromKod(kodStr.trim());
-                if (islemKodu == null) {
-                    continue;
+                BankaIslemKodu.Direction direction = null;
+
+                if (islemKodu != null) {
+                    direction = islemKodu.getDirection();
+                } else {
+                    // Custom kod kontrolü
+                    var customKod = customKodRepo.findByCompanyId(companyId)
+                            .stream()
+                            .filter(c -> c.getKod().equals(kodStr.trim()))
+                            .findFirst()
+                            .orElse(null);
+                    if (customKod == null) continue;
+                    direction = "IN".equals(customKod.getDirection())
+                            ? BankaIslemKodu.Direction.IN
+                            : BankaIslemKodu.Direction.OUT;
                 }
 
                 BigDecimal tutar;
@@ -130,7 +148,8 @@ public class BankaService {
                         .aciklama(aciklama)
                         .tutar(tutar)
                         .islemKodu(islemKodu)
-                        .direction(islemKodu.getDirection())
+                        .customKodStr(islemKodu == null ? kodStr.trim() : null)
+                        .direction(direction)
                         .islemTarihi(parseDate(tarihStr))
                         .companyId(companyId)
                         .yuklemeYapanId(userId)
@@ -172,11 +191,46 @@ public class BankaService {
         islemRepo.delete(islem);
     }
 
-    public List<BankaIslemKoduResponse> islemKodlariGetir() {
-        return Arrays.stream(BankaIslemKodu.values())
-                .map(k -> new BankaIslemKoduResponse(
-                        k.getKod(), k.getAciklama(), k.getDirection().name()))
+    /** Built-in enum kodları + şirkete özel custom kodları birleştirerek döner */
+    public List<BankaIslemKoduResponse> islemKodlariGetir(Long companyId) {
+        List<BankaIslemKoduResponse> builtIn = Arrays.stream(BankaIslemKodu.values())
+                .map(k -> new BankaIslemKoduResponse(null, k.getKod(), k.getAciklama(), k.getDirection().name()))
                 .toList();
+
+        List<BankaIslemKoduResponse> custom = customKodRepo.findByCompanyId(companyId)
+                .stream()
+                .map(k -> new BankaIslemKoduResponse(k.getId(), k.getKod(), k.getAciklama(), k.getDirection()))
+                .toList();
+
+        return Stream.concat(builtIn.stream(), custom.stream()).toList();
+    }
+
+    @Transactional
+    public BankaIslemKoduCustom islemKoduEkle(String kod, String aciklama,
+                                               String direction, Long companyId) {
+        // Built-in enum ile çakışma kontrolü
+        if (BankaIslemKodu.fromKod(kod.trim()) != null) {
+            throw new KasappException(ErrorType.VALIDATION_ERROR);
+        }
+        if (customKodRepo.existsByKodAndCompanyId(kod.trim(), companyId)) {
+            throw new KasappException(ErrorType.VALIDATION_ERROR);
+        }
+        String dir = "IN".equalsIgnoreCase(direction) ? "IN" : "OUT";
+        BankaIslemKoduCustom entity = BankaIslemKoduCustom.builder()
+                .kod(kod.trim())
+                .aciklama(aciklama != null ? aciklama.trim() : "")
+                .direction(dir)
+                .companyId(companyId)
+                .createdAt(LocalDateTime.now())
+                .build();
+        return customKodRepo.save(entity);
+    }
+
+    @Transactional
+    public void islemKoduSil(Long id, Long companyId) {
+        BankaIslemKoduCustom entity = customKodRepo.findByIdAndCompanyId(id, companyId)
+                .orElseThrow(() -> new KasappException(ErrorType.BANKA_HESAP_BULUNAMADI));
+        customKodRepo.delete(entity);
     }
 
     private BankaHesap getHesap(Long hesapId, Long companyId) {
@@ -202,10 +256,31 @@ public class BankaService {
 
     private BankaIslemResponse toIslemResponse(BankaIslemRepository.BankaIslemRow row) {
         BankaIslemKodu islemKodu = parseIslemKodu(row.getIslemKoduRaw());
+
+        // Enum'da bulunamadı — custom kod (direction DB'den okunur)
         if (islemKodu == null) {
-            log.warn("Legacy/invalid banka islem row skipped. id={}, rawKod={}",
-                    row.getId(), row.getIslemKoduRaw());
-            return null;
+            String rawDir       = row.getDirectionRaw();
+            String customKodStr = row.getCustomKodStrRaw();
+
+            if (rawDir == null || rawDir.isBlank()) {
+                log.warn("Banka islem row skipped — no direction. id={}", row.getId());
+                return null;
+            }
+            String dir = rawDir.trim().toUpperCase();
+            if (!dir.equals("IN") && !dir.equals("OUT")) {
+                log.warn("Banka islem row skipped — invalid direction. id={}, dir={}", row.getId(), dir);
+                return null;
+            }
+
+            String displayKod = (customKodStr != null && !customKodStr.isBlank()) ? customKodStr : "—";
+            return new BankaIslemResponse(
+                    row.getId(),
+                    row.getAciklama(),
+                    row.getTutar(),
+                    displayKod,
+                    displayKod,
+                    dir,
+                    parseStoredDate(row.getIslemTarihiRaw()));
         }
 
         BankaIslemKodu.Direction direction = parseDirection(row.getDirectionRaw(), islemKodu);

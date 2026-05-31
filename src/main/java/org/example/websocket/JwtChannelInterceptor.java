@@ -2,6 +2,7 @@ package org.example.websocket;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
 import lombok.RequiredArgsConstructor;
+import org.example.repository.UserRepository;
 import org.example.security.CustomUserDetails;
 import org.example.skills.Jwt.JwtService;
 import org.springframework.messaging.Message;
@@ -23,6 +24,7 @@ import java.util.List;
 public class JwtChannelInterceptor implements ChannelInterceptor {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -43,10 +45,16 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             String token = authHeader.substring(7);
             DecodedJWT jwt = jwtService.verify(token);
 
-            String username  = jwt.getSubject();
             Long userId      = jwt.getClaim("userId").asLong();
             Long companyId   = jwt.getClaim("companyId").asLong();
-            String role      = jwt.getClaim("role").asString();
+
+            // DB'den kullanıcıyı çek ve aktiflik kontrolü yap
+            var dbUser = userRepository.findById(userId)
+                    .filter(u -> u.isActive() && u.getCompanyId().equals(companyId))
+                    .orElseThrow(() -> new IllegalArgumentException("Kullanıcı aktif değil veya bulunamadı."));
+
+            String username  = dbUser.getUsername();
+            String role      = dbUser.getRole().name();
             List<String> permissions = jwt.getClaim("permissions").asList(String.class);
 
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();

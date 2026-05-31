@@ -64,6 +64,8 @@ public class SecurityConfig {
                     auth.requestMatchers("/api/auth/**").permitAll();
                     auth.requestMatchers("/ws/**").permitAll();
                     auth.requestMatchers("/api/my-notes/**").authenticated();
+                    // Masraf kategorileri — tüm giriş yapmış kullanıcılar okuyabilir
+                    auth.requestMatchers("/api/expense-categories/**").authenticated();
 
                     if (swaggerEnabled) {
                         auth.requestMatchers(

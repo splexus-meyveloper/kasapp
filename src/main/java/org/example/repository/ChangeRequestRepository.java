@@ -21,4 +21,8 @@ public interface ChangeRequestRepository extends JpaRepository<ChangeRequest, Lo
 
     boolean existsByCompanyIdAndEntityTypeAndEntityIdAndStatus(
             Long companyId, String entityType, Long entityId, ChangeRequestStatus status);
+
+    List<ChangeRequest> findAllByOrderByRequestedAtDesc();
+
+    List<ChangeRequest> findByCompanyIdOrderByRequestedAtDesc(Long companyId);
 }

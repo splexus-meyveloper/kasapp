@@ -358,10 +358,22 @@ public class InterBranchTransferService {
     // LİSTELEME
     // ─────────────────────────────────────────────────────────
 
-    public TransferResponse getById(Long id) {
+    public TransferResponse getById(Long id, Long companyId) {
         InterBranchTransfer t = transferRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transfer bulunamadı"));
+        // Sadece kaynak şube, hedef şube veya merkez erişebilir
+        if (!t.getSourceCompanyId().equals(companyId)
+                && !t.getTargetCompanyId().equals(companyId)
+                && !isMerkez(companyId)) {
+            throw new RuntimeException("Bu transfere erişim izniniz yok");
+        }
         return toResponse(t);
+    }
+
+    private boolean isMerkez(Long companyId) {
+        return companyRepo.findFirstByBranchType(BranchType.MERKEZ)
+                .map(c -> c.getId().equals(companyId))
+                .orElse(false);
     }
 
     public List<TransferResponse> getMyTransfers(Long companyId) {

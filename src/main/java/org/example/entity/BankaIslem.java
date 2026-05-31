@@ -26,9 +26,14 @@ public class BankaIslem {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal tutar;
 
+    /** Built-in işlem kodu — custom kodlar için null olabilir */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = true)
     private BankaIslemKodu islemKodu;
+
+    /** Custom işlem kodu string'i — islemKodu null ise bu alan dolu olur */
+    @Column(name = "custom_kod_str", length = 50)
+    private String customKodStr;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

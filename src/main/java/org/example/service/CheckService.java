@@ -14,6 +14,7 @@ import org.example.skills.enums.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -306,8 +307,16 @@ public class CheckService {
                 .orElse(false);
     }
 
+    private boolean isAdmin() {
+        return SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getAuthorities()
+                .stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
+
     private Check getCheckOrThrow(Long id, Long companyId) {
-        if (isMerkezCompany(companyId)) {
+        if (isMerkezCompany(companyId) && isAdmin()) {
             return repository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Çek bulunamadı"));
         }

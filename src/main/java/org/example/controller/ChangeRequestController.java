@@ -84,6 +84,25 @@ public class ChangeRequestController {
         return ResponseEntity.ok("POS duzenleme talebi olusturuldu");
     }
 
+    /** Tek change request detayı */
+    @GetMapping("/{requestId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getById(
+            @PathVariable Long requestId,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        return ResponseEntity.ok(changeRequestService.getById(requestId, user.getCompanyId()));
+    }
+
+    /** Tüm change requestler — PENDING + APPROVED + REJECTED */
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAll(
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        return ResponseEntity.ok(changeRequestService.getAllRequests(user.getCompanyId()));
+    }
+
     @GetMapping("/pending")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> pending(

@@ -6,6 +6,7 @@ import org.example.dto.request.LoanCreateRequest;
 import org.example.entity.Loan;
 import org.example.security.CustomUserDetails;
 import org.example.service.LoanService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/loans")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('KREDILER') or hasRole('ADMIN')")
 public class LoanController {
 
     private final LoanService service;

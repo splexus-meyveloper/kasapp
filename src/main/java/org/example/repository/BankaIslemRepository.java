@@ -17,6 +17,7 @@ public interface BankaIslemRepository extends JpaRepository<BankaIslem, Long> {
         String getAciklama();
         BigDecimal getTutar();
         String getIslemKoduRaw();
+        String getCustomKodStrRaw();
         String getDirectionRaw();
         String getIslemTarihiRaw();
     }
@@ -38,6 +39,7 @@ public interface BankaIslemRepository extends JpaRepository<BankaIslem, Long> {
             i.aciklama AS aciklama,
             i.tutar AS tutar,
             i.islem_kodu AS "islemKoduRaw",
+            i.custom_kod_str AS "customKodStrRaw",
             i.direction AS "directionRaw",
             CAST(i.islem_tarihi AS varchar) AS "islemTarihiRaw"
         FROM tbl_banka_islem i

@@ -83,10 +83,11 @@ public class AuditLogController {
         );
     }
 
-    /** Merkez admin: tüm şubelerin transfer logları (companyId filtresi yok) */
+    /** Admin: transfer logları — merkez tüm şubeleri, diğer adminler yalnız kendi şubelerini görür */
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/transfers")
     public PageResponse<AuditLogResponse> listTransfers(
+            @AuthenticationPrincipal CustomUserDetails user,
             @RequestParam(required = false) String username,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
@@ -98,6 +99,11 @@ public class AuditLogController {
                 .where(AuditLogSpecifications.entityTypeEquals("TRANSFER"))
                 .and(AuditLogSpecifications.usernameContains(username))
                 .and(AuditLogSpecifications.createdBetween(start, end));
+
+        // Merkez admin tüm şubeleri görür; diğer adminler sadece kendi şubelerini
+        if (!service.isMerkez(user.getCompanyId())) {
+            spec = spec.and(AuditLogSpecifications.companyIdEquals(user.getCompanyId()));
+        }
 
         int page = Math.min(Math.max(pageable.getPageNumber(), 0), MAX_PAGE_NUMBER);
         int size = Math.min(
@@ -128,7 +134,7 @@ public class AuditLogController {
         int safePage = Math.min(Math.max(page, 0), MAX_PAGE_NUMBER);
         int safeSize = Math.min(size > 0 ? size : DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
 
-        Page<AuditLog> result = service.getUserLogs(user.getUsername(), safePage, safeSize);
+        Page<AuditLog> result = service.getUserLogs(user.getUsername(), user.getCompanyId(), safePage, safeSize);
         Page<AuditLogResponse> mapped = result.map(AuditLogResponse::from);
 
         return new PageResponse<>(

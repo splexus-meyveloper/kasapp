@@ -39,7 +39,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class MyActivityService {
 
-    private static final int MAX_RECORDS = 200;
+    private static final int MAX_RECORDS = 500;
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
     private final AuditLogRepository      auditRepo;
@@ -271,8 +271,11 @@ public class MyActivityService {
             case "LOAN_INSTALLMENT" -> "Kredi Taksit";
             case "EXPENSE_ADD"      -> "Masraf";
             case "POS_LOG"          -> "POS İşlemi";
-            case "BANKA_CIKIS"      -> "Bankaya Para Yatırma";
-            default                 -> action;
+            case "BANKA_CIKIS"                      -> "Bankaya Para Yatırma";
+            case "INTER_BRANCH_TRANSFER_CREATED"    -> "Transfer Gönderildi";
+            case "INTER_BRANCH_TRANSFER_APPROVED"   -> "Transfer Onaylandı";
+            case "INTER_BRANCH_TRANSFER_REJECTED"   -> "Transfer Reddedildi";
+            default                                 -> action;
         };
     }
 

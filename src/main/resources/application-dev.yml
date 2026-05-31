@@ -3,3 +3,7 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+kasadeneme3:
+  jwt:
+    secret-key: "dev-kasapp-secret-key-min-32-chars-long!!"

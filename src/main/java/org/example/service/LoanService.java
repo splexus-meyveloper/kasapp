@@ -74,6 +74,7 @@ public class LoanService {
         return saved;
     }
 
+    @Audit(action = AuditAction.LOAN_INSTALLMENT)
     @Transactional
     public Loan payInstallment(Long loanId, Long userId, Long companyId) {
 

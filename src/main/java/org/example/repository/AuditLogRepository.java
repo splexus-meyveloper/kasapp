@@ -15,6 +15,9 @@ public interface AuditLogRepository
 
     Page<AuditLog> findByUsernameOrderByCreatedAtDesc(String username, Pageable pageable);
 
+    Page<AuditLog> findByUsernameAndCompanyIdOrderByCreatedAtDesc(
+            String username, Long companyId, Pageable pageable);
+
     Page<AuditLog> findByCompanyIdAndUserIdOrderByCreatedAtDesc(
             Long companyId, Long userId, Pageable pageable);
 

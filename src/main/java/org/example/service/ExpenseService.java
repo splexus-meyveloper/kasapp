@@ -6,6 +6,10 @@ import org.example.audit.Audit;
 import org.example.dto.request.AddExpenseRequest;
 import org.example.dto.response.ExpenseResponse;
 import org.example.entity.Expense;
+import org.example.entity.ExpenseCategory;
+import org.example.exception.ErrorType;
+import org.example.exception.KasappException;
+import org.example.repository.ExpenseCategoryRepository;
 import org.example.repository.ExpenseRepository;
 import org.example.skills.enums.AuditAction;
 import org.example.skills.enums.ExpensePaymentMethod;
@@ -14,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -21,8 +26,59 @@ import java.util.List;
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
+    private final ExpenseCategoryRepository categoryRepository;
     private final CashService cashService;
     private final RealtimeEventService realtimeEventService;
+
+    // ─────────────────────────────────────────────────────────────
+    // KATEGORİ YÖNETİMİ
+    // ─────────────────────────────────────────────────────────────
+
+    /** Şirkete ait tüm kategorileri döner (built-in + özel) */
+    public List<ExpenseCategory> getCategories(Long companyId) {
+        return categoryRepository.findAllForCompany(companyId);
+    }
+
+    @Transactional
+    public ExpenseCategory addCategory(String code, String label, Long companyId) {
+        String normalizedCode = code.trim().toUpperCase().replace(" ", "_");
+
+        // Built-in enum ile çakışma kontrolü
+        boolean builtIn = Arrays.stream(ExpenseType.values())
+                .anyMatch(e -> e.name().equals(normalizedCode));
+        if (builtIn) {
+            throw new KasappException(ErrorType.VALIDATION_ERROR);
+        }
+
+        if (categoryRepository.existsByCodeAndCompanyId(normalizedCode, companyId)) {
+            throw new KasappException(ErrorType.VALIDATION_ERROR);
+        }
+
+        ExpenseCategory cat = ExpenseCategory.builder()
+                .code(normalizedCode)
+                .label(label.trim())
+                .companyId(companyId)
+                .build();
+
+        return categoryRepository.save(cat);
+    }
+
+    @Transactional
+    public void deleteCategory(Long categoryId, Long companyId) {
+        ExpenseCategory cat = categoryRepository.findByIdAndCompanyId(categoryId, companyId)
+                .orElseThrow(() -> new KasappException(ErrorType.VALIDATION_ERROR));
+
+        // Built-in kategoriler silinemez (companyId == null)
+        if (cat.getCompanyId() == null) {
+            throw new KasappException(ErrorType.VALIDATION_ERROR);
+        }
+
+        categoryRepository.delete(cat);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MASRAF EKLEME
+    // ─────────────────────────────────────────────────────────────
 
     @Audit(action = AuditAction.EXPENSE_ADD)
     @Transactional
@@ -33,7 +89,7 @@ public class ExpenseService {
                 ? ExpensePaymentMethod.CASH
                 : req.paymentMethod();
 
-        if (req.expenseType() == ExpenseType.ARAC_GIDERLERI) {
+        if ("ARAC_GIDERLERI".equals(req.expenseType())) {
             if (req.aracPlaka() == null) {
                 throw new IllegalArgumentException("Arac gideri icin plaka secilmelidir.");
             }
@@ -61,7 +117,7 @@ public class ExpenseService {
         if (paymentMethod == ExpensePaymentMethod.CASH) {
             cashService.addExpense(
                     req.amount(),
-                    req.expenseType().name() + " - " + aciklama,
+                    req.expenseType() + " - " + aciklama,
                     userId,
                     companyId
             );
@@ -70,39 +126,18 @@ public class ExpenseService {
         return expense;
     }
 
-    private String normalizeDescription(String description) {
-        if (description == null || description.isBlank()) {
-            throw new IllegalArgumentException("Aciklama bos olamaz.");
-        }
-
-        String normalized = description.trim();
-        if (normalized.equalsIgnoreCase("null") || normalized.equalsIgnoreCase("undefined")) {
-            throw new IllegalArgumentException("Aciklama bos olamaz.");
-        }
-
-        return normalized;
-    }
-
-    private void validateVehicleExpenseDescription(String description, String plateLabel, String plateCode) {
-        String normalized = description.replaceAll("\\s+", " ").trim();
-        String normalizedPlateLabel = plateLabel.replaceAll("\\s+", " ").trim();
-        String normalizedPlateCode = plateCode.replace('_', ' ').replaceFirst("^P ", "").trim();
-
-        if (normalized.equalsIgnoreCase(normalizedPlateLabel)
-                || normalized.equalsIgnoreCase(normalizedPlateCode)
-                || normalized.equalsIgnoreCase("arac gideri")
-                || normalized.equalsIgnoreCase("araç gideri")) {
-            throw new IllegalArgumentException("Arac gideri icin aciklama girilmelidir.");
-        }
-    }
+    // ─────────────────────────────────────────────────────────────
+    // LİSTELEME
+    // ─────────────────────────────────────────────────────────────
 
     @Transactional
     public List<ExpenseResponse> getExpenses(Long companyId,
-                                             ExpenseType expenseType,
+                                             String expenseType,
                                              ExpensePaymentMethod paymentMethod,
                                              LocalDate startDate,
                                              LocalDate endDate) {
-        return expenseRepository.findFiltered(companyId, expenseType, paymentMethod, startDate, endDate)
+        String typeFilter = (expenseType == null || expenseType.isBlank()) ? null : expenseType;
+        return expenseRepository.findFiltered(companyId, typeFilter, paymentMethod, startDate, endDate)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -119,5 +154,29 @@ public class ExpenseService {
                 expense.getCreatedAt(),
                 expense.getCreatedBy()
         );
+    }
+
+    private String normalizeDescription(String description) {
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException("Aciklama bos olamaz.");
+        }
+        String normalized = description.trim();
+        if (normalized.equalsIgnoreCase("null") || normalized.equalsIgnoreCase("undefined")) {
+            throw new IllegalArgumentException("Aciklama bos olamaz.");
+        }
+        return normalized;
+    }
+
+    private void validateVehicleExpenseDescription(String description, String plateLabel, String plateCode) {
+        String normalized = description.replaceAll("\\s+", " ").trim();
+        String normalizedPlateLabel = plateLabel.replaceAll("\\s+", " ").trim();
+        String normalizedPlateCode = plateCode.replace('_', ' ').replaceFirst("^P ", "").trim();
+
+        if (normalized.equalsIgnoreCase(normalizedPlateLabel)
+                || normalized.equalsIgnoreCase(normalizedPlateCode)
+                || normalized.equalsIgnoreCase("arac gideri")
+                || normalized.equalsIgnoreCase("araç gideri")) {
+            throw new IllegalArgumentException("Arac gideri icin aciklama girilmelidir.");
+        }
     }
 }

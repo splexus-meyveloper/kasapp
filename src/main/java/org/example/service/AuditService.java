@@ -6,8 +6,10 @@ import org.example.audit.AuditDetails;
 import org.example.entity.AuditLog;
 import org.example.entity.User;
 import org.example.repository.AuditLogRepository;
+import org.example.repository.CompanyRepository;
 import org.example.repository.UserRepository;
 import org.example.skills.enums.AuditAction;
+import org.example.skills.enums.BranchType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -25,8 +27,9 @@ public class AuditService {
 
     private final AuditLogRepository repository;
     private final UserRepository userRepository;
+    private final CompanyRepository companyRepository;
 
-    public Page<AuditLog> getUserLogs(String username, int page, int size) {
+    public Page<AuditLog> getUserLogs(String username, Long companyId, int page, int size) {
 
         // Limit aşılmasın
         int safeSize = Math.min(size > 0 ? size : 20, MAX_PAGE_SIZE);
@@ -38,7 +41,13 @@ public class AuditService {
                 Sort.by("createdAt").descending()
         );
 
-        return repository.findByUsernameOrderByCreatedAtDesc(username, pageable);
+        return repository.findByUsernameAndCompanyIdOrderByCreatedAtDesc(username, companyId, pageable);
+    }
+
+    public boolean isMerkez(Long companyId) {
+        return companyRepository.findFirstByBranchType(BranchType.MERKEZ)
+                .map(c -> c.getId().equals(companyId))
+                .orElse(false);
     }
 
     public void logTransfer(

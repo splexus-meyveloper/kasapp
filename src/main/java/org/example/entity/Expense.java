@@ -3,7 +3,6 @@ package org.example.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.skills.enums.ExpensePaymentMethod;
-import org.example.skills.enums.ExpenseType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,8 +23,9 @@ public class Expense {
 
     private Long companyId;
 
-    @Enumerated(EnumType.STRING)
-    private ExpenseType type;
+    /** Masraf türü kodu — built-in enum adı veya özel kategori kodu (String olarak saklanır) */
+    @Column(name = "type", length = 100)
+    private String type;
 
     @Enumerated(EnumType.STRING)
     private ExpensePaymentMethod paymentMethod;

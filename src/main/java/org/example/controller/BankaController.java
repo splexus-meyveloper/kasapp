@@ -6,6 +6,7 @@ import org.example.dto.request.BankaHesapOlusturRequest;
 import org.example.dto.response.BankaHesapResponse;
 import org.example.dto.response.BankaIslemKoduResponse;
 import org.example.dto.response.BankaIslemResponse;
+import org.example.entity.BankaIslemKoduCustom;
 import org.example.security.CustomUserDetails;
 import org.example.service.BankaService;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/banka")
@@ -105,7 +107,29 @@ public class BankaController {
 
     @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
     @GetMapping("/islem-kodlari")
-    public List<BankaIslemKoduResponse> islemKodlariGetir() {
-        return service.islemKodlariGetir();
+    public List<BankaIslemKoduResponse> islemKodlariGetir(
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return service.islemKodlariGetir(user.getCompanyId());
+    }
+
+    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    @PostMapping("/islem-kodlari")
+    public ResponseEntity<BankaIslemKoduCustom> islemKoduEkle(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        String kod       = body.getOrDefault("kod", "").trim();
+        String aciklama  = body.getOrDefault("aciklama", "").trim();
+        String direction = body.getOrDefault("direction", "OUT").trim();
+        if (kod.isEmpty()) return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(service.islemKoduEkle(kod, aciklama, direction, user.getCompanyId()));
+    }
+
+    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    @DeleteMapping("/islem-kodlari/{id}")
+    public ResponseEntity<Void> islemKoduSil(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        service.islemKoduSil(id, user.getCompanyId());
+        return ResponseEntity.ok().build();
     }
 }
