@@ -51,6 +51,19 @@ public class CashService {
         return tx;
     }
 
+    /**
+     * Masrafın kasa karşılığı. Kasa hareketi (ve dolayısıyla bakiye) oluşturur ama
+     * AYRI bir CASH_EXPENSE audit kaydı/satırı ÜRETMEZ — masraf zaten EXPENSE_ADD
+     * olarak loglanıyor. Böylece "benim işlemlerim"/rapor/log'da çift satır olmaz.
+     */
+    @Transactional
+    public CashTransaction addExpenseForMasraf(BigDecimal amount, String description,
+                                               Long userId, Long companyId) {
+        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false);
+        realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
+        return tx;
+    }
+
     @Transactional
     public CashTransaction addTransferIncome(BigDecimal amount, String description, Long userId, Long companyId) {
         CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, true);

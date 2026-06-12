@@ -3,9 +3,11 @@ package org.example.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.dto.request.BankaHesapOlusturRequest;
+import org.example.dto.request.KategoriGuncelleRequest;
 import org.example.dto.response.BankaHesapResponse;
 import org.example.dto.response.BankaIslemKoduResponse;
 import org.example.dto.response.BankaIslemResponse;
+import org.example.dto.response.BankaKategoriOzet;
 import org.example.entity.BankaIslemKoduCustom;
 import org.example.security.CustomUserDetails;
 import org.example.service.BankaService;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -76,6 +79,17 @@ public class BankaController {
         return ResponseEntity.ok(adet + " islem basariyla yuklendi.");
     }
 
+    /** Ham banka ekstresi (bankadan indirilen excel) — yön tutarın işaretinden belirlenir. */
+    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    @PostMapping("/hesaplar/{id}/excel-ekstre")
+    public ResponseEntity<String> excelEkstreYukle(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails user) throws IOException {
+        String sonuc = service.importBankaEkstresi(id, user.getCompanyId(), user.getId(), file);
+        return ResponseEntity.ok(sonuc);
+    }
+
     @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
     @DeleteMapping("/hesaplar/{id}/islemler")
     public ResponseEntity<String> islemleriTemizle(
@@ -93,6 +107,29 @@ public class BankaController {
             @AuthenticationPrincipal CustomUserDetails user) {
         service.islemSil(id, islemId, user.getCompanyId());
         return ResponseEntity.noContent().build();
+    }
+
+    /** Bir banka işleminin kategorisini (kodunu) elle değiştir. Yön değişmez. */
+    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    @PutMapping("/hesaplar/{id}/islemler/{islemId}/kategori")
+    public ResponseEntity<Void> islemKategoriGuncelle(
+            @PathVariable Long id,
+            @PathVariable Long islemId,
+            @RequestBody KategoriGuncelleRequest req,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        service.updateIslemKategori(id, islemId, user.getCompanyId(), req.kod());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Kategori bazında giriş/çıkış/net özeti (opsiyonel start/end = yyyy-MM-dd). */
+    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    @GetMapping("/hesaplar/{id}/kategori-ozet")
+    public List<BankaKategoriOzet> kategoriOzet(
+            @PathVariable Long id,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return service.kategoriOzet(id, user.getCompanyId(), start, end);
     }
 
     @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")

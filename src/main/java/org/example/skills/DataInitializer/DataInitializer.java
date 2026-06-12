@@ -80,7 +80,9 @@ public class DataInitializer {
     }
 
     private void ensureAdminUser(String username, String password, Long companyId, String logMessage) {
-        if (userRepository.findByUsername(username).isPresent()) {
+        // Onceden findByUsername (global) kullaniliyordu; ayni kullanici adi baska
+        // bir sirkette varsa admin hic olusturulmuyordu. Kontrol artik sirkete ozel.
+        if (userRepository.findByCompanyIdAndUsername(companyId, username).isPresent()) {
             return;
         }
 

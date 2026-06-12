@@ -38,7 +38,9 @@ public class DashboardService {
         LocalDateTime nextMonthStart = firstDayOfMonth.plusMonths(1).atStartOfDay();
 
         User selectedUser = resolveSelectedUser(role, selectedUserId, companyId);
-        Long dashboardCompanyId = companyId;
+        // Bir kullanıcı seçildiyse, panel o kullanıcının şubesine göre hesaplanır
+        // (merkez admin diğer şubelerin kullanıcılarını da görebilsin diye).
+        Long dashboardCompanyId = selectedUser != null ? selectedUser.getCompanyId() : companyId;
         Long effectiveUserId = selectedUser != null
                 ? selectedUser.getId()
                 : resolveUserId(role, currentUserId);
@@ -76,10 +78,12 @@ public class DashboardService {
         List<DashboardResponse.DailyNetBalance> dailyNetBalances =
                 buildDailyNetBalances(dashboardCompanyId, today);
 
-        // Admin: diğer şubenin özeti
+        // Admin: diğer şubenin özeti — yalnızca genel görünümde (kullanıcı seçilmemişken).
+        // Belirli bir kullanıcının paneline geçilince "Diğer Şube" kartı gizlenir,
+        // aksi halde o şubeyi hem ana panelde hem kartta tekrar gösteriyordu.
         DashboardResponse.BranchSummary otherBranch = null;
         Integer pendingCount = null;
-        if (isAdmin) {
+        if (isAdmin && selectedUser == null) {
             otherBranch  = buildOtherBranchSummary(companyId, todayStart, tomorrow, monthStart, nextMonthStart);
             pendingCount = countPendingTransfersForDashboard(companyId);
         }
@@ -100,7 +104,9 @@ public class DashboardService {
     public Map<String, Object> getChart(Long companyId, Long currentUserId,
                                         String role, Long selectedUserId) {
         User selectedUser = resolveSelectedUser(role, selectedUserId, companyId);
-        Long dashboardCompanyId = companyId;
+        // Bir kullanıcı seçildiyse, panel o kullanıcının şubesine göre hesaplanır
+        // (merkez admin diğer şubelerin kullanıcılarını da görebilsin diye).
+        Long dashboardCompanyId = selectedUser != null ? selectedUser.getCompanyId() : companyId;
         Long effectiveUserId = selectedUser != null
                 ? selectedUser.getId()
                 : resolveUserId(role, currentUserId);
@@ -221,9 +227,9 @@ public class DashboardService {
         if (!"ADMIN".equals(role) || selectedUserId == null) {
             return null;
         }
-        User selectedUser = userRepository.findById(selectedUserId)
-                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
-        return selectedUser.getCompanyId().equals(currentCompanyId) ? selectedUser : null;
+        // Admin tüm şubelerdeki kullanıcıların panelini görebilir.
+        // (Önceden yalnızca kendi şubesindeki kullanıcı seçilebiliyordu.)
+        return userRepository.findById(selectedUserId).orElse(null);
     }
 
     private int countPendingTransfersForDashboard(Long companyId) {

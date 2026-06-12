@@ -1,9 +1,14 @@
 package org.example.entity;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.skills.enums.ERole;
 
 @Entity
+// passwordHash hiçbir JSON yanıtına yazılmaz (serialize); allowSetters ile
+// gerekirse deserialize (write) edilebilir. Sınıf seviyesi olduğu için
+// Lombok @Getter ile de güvenle çalışır.
+@JsonIgnoreProperties(value = {"passwordHash"}, allowSetters = true)
 @Table(
         name="tbl_user",
         uniqueConstraints = {

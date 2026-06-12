@@ -115,7 +115,9 @@ public class ExpenseService {
         realtimeEventService.publish("MASRAF", "EXPENSE_ADD", companyId, expense.getId());
 
         if (paymentMethod == ExpensePaymentMethod.CASH) {
-            cashService.addExpense(
+            // Sessiz: kasa hareketi/bakiye oluşur ama ayrı CASH_EXPENSE (Kasa Çıkış)
+            // satırı loglanmaz — masraf tek kayıt (EXPENSE_ADD) olarak görünür.
+            cashService.addExpenseForMasraf(
                     req.amount(),
                     req.expenseType() + " - " + aciklama,
                     userId,

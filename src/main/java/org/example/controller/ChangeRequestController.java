@@ -84,6 +84,22 @@ public class ChangeRequestController {
         return ResponseEntity.ok("POS duzenleme talebi olusturuldu");
     }
 
+    /** İşlem SİLME talebi (onaya gider; onaylanınca silinir + finansal etki geri alınır) */
+    @PostMapping("/delete/{entityType}/{entityId}")
+    public ResponseEntity<?> requestDelete(
+            @PathVariable String entityType,
+            @PathVariable Long entityId,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        changeRequestService.createDeleteRequest(
+                entityType,
+                entityId,
+                user.getId(),
+                user.getCompanyId()
+        );
+        return ResponseEntity.ok("Silme talebi olusturuldu");
+    }
+
     /** Tek change request detayı */
     @GetMapping("/{requestId}")
     @PreAuthorize("hasRole('ADMIN')")

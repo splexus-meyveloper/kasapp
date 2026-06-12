@@ -134,6 +134,44 @@ public class ChangeRequestService {
                 existing.getId(), userId, companyId, request);
     }
 
+    // ── SİLME talebi (onaylanınca işlem silinir + finansal etki geri alınır) ──
+    @Transactional
+    public void createDeleteRequest(String entityType, Long entityId,
+                                    Long userId, Long companyId) {
+        String type = entityType == null ? "" : entityType.trim().toUpperCase();
+        Object snapshot;
+        switch (type) {
+            case "CASH" -> {
+                CashTransaction e = cashTransactionRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.CASH_TRANSACTION_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                snapshot = e;
+            }
+            case "CHECK" -> {
+                Check e = checkRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.CHECK_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                snapshot = e;
+            }
+            case "NOTE" -> {
+                Note e = noteRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.NOTE_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                snapshot = e;
+            }
+            case "POS" -> {
+                PosLog e = posLogRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.POS_LOG_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                snapshot = e;
+            }
+            default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
+        }
+
+        ChangeRequest request = buildAndSaveDeleteRequest(type, entityId, companyId, userId, snapshot);
+        logAudit(AuditAction.ISLEM_SILME_TALEBI, type, entityId, userId, companyId, request);
+    }
+
     // ── Tek talep getir ───────────────────────────────────────────────────
     @Transactional(readOnly = true)
     public ChangeRequestResponseDto getById(Long requestId, Long companyId) {
@@ -239,7 +277,9 @@ public class ChangeRequestService {
         request.setApprovedAt(LocalDateTime.now());
         changeRequestRepository.save(request);
 
-        AuditAction action = resolveApproveAction(request.getEntityType());
+        AuditAction action = request.getActionType() == ChangeRequestAction.DELETE
+                ? AuditAction.ISLEM_SILINDI
+                : resolveApproveAction(request.getEntityType());
         logAudit(action, request.getEntityType(), request.getEntityId(),
                 adminId, companyId, request);
     }
@@ -263,7 +303,9 @@ public class ChangeRequestService {
         request.setApprovedAt(LocalDateTime.now());
         changeRequestRepository.save(request);
 
-        AuditAction action = resolveRejectAction(request.getEntityType());
+        AuditAction action = request.getActionType() == ChangeRequestAction.DELETE
+                ? AuditAction.ISLEM_SILME_REDDEDILDI
+                : resolveRejectAction(request.getEntityType());
         logAudit(action, request.getEntityType(), request.getEntityId(),
                 adminId, companyId, request);
     }
@@ -306,7 +348,72 @@ public class ChangeRequestService {
         }
     }
 
+    /** Silme talebi kaydı: oldData = silinecek işlemin anlık görüntüsü, newData = yok. */
+    private ChangeRequest buildAndSaveDeleteRequest(String entityType, Long entityId,
+                                                    Long companyId, Long userId, Object oldObj) {
+        try {
+            if (changeRequestRepository.existsByCompanyIdAndEntityTypeAndEntityIdAndStatus(
+                    companyId, entityType, entityId, ChangeRequestStatus.PENDING)) {
+                throw new KasappException(ErrorType.CHANGE_REQUEST_ALREADY_PENDING);
+            }
+            String oldJson = objectMapper.writeValueAsString(oldObj);
+            ChangeRequest request = ChangeRequest.builder()
+                    .companyId(companyId)
+                    .entityType(entityType)
+                    .entityId(entityId)
+                    .actionType(ChangeRequestAction.DELETE)
+                    .oldData(oldJson)
+                    .newData(null)
+                    .requestedBy(userId)
+                    .requestedAt(LocalDateTime.now())
+                    .status(ChangeRequestStatus.PENDING)
+                    .build();
+            return changeRequestRepository.save(request);
+        } catch (Exception e) {
+            if (e instanceof KasappException ke) throw ke;
+            log.error("Silme talebi oluşturulurken hata. entityType={}, entityId={}", entityType, entityId, e);
+            throw new KasappException(ErrorType.CHANGE_REQUEST_CREATE_FAILED);
+        }
+    }
+
+    /** Onaylanan silme talebini uygular: işlemi siler, finansal etkisini geri alır. */
+    private void applyDelete(ChangeRequest request, Long companyId) {
+        switch (request.getEntityType()) {
+            case "CASH" -> {
+                CashTransaction e = cashTransactionRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.CASH_TRANSACTION_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                e.setActive(false);                          // soft-delete → bakiye otomatik geri döner
+                cashTransactionRepository.save(e);
+            }
+            case "CHECK" -> {
+                Check e = checkRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.CHECK_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                checkRepository.delete(e);                    // portföyden/karttan düşer
+            }
+            case "NOTE" -> {
+                Note e = noteRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.NOTE_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                noteRepository.delete(e);
+            }
+            case "POS" -> {
+                PosLog e = posLogRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.POS_LOG_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                posLogRepository.delete(e);                   // POS kasaya yansımaz, sadece log silinir
+            }
+            default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
+        }
+    }
+
     private void applyChange(ChangeRequest request, Long companyId) {
+        // Silme talebi → güncelleme değil; sil + finansal etkiyi geri al
+        if (request.getActionType() == ChangeRequestAction.DELETE) {
+            applyDelete(request, companyId);
+            return;
+        }
         try {
             switch (request.getEntityType()) {
                 case "CASH" -> {

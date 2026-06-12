@@ -35,6 +35,11 @@ public enum AuditAction {
     POS_UPDATE_REQUEST_APPROVED,
     POS_UPDATE_REQUEST_REJECTED,
 
+    // İşlem silme (onaylı)
+    ISLEM_SILME_TALEBI,         // silme talebi oluşturuldu
+    ISLEM_SILINDI,              // silme onaylandı → işlem silindi + finansal etki geri alındı
+    ISLEM_SILME_REDDEDILDI,     // silme reddedildi
+
     EXPENSE_ADD,
 
     POS_LOG,                    // Kredi kartı POS kaydı
