@@ -180,13 +180,15 @@ public class AuditAspect {
             } catch (Exception ignored) {}
         }
 
+        LocalDateTime effectiveDate = resolveEntityDate(result);
+
         AuditDetails details = AuditDetails.builder()
                 .action(audit.action().name())
                 .amount(amount)
                 .description(description)
                 .userId(user.getId())
                 .username(user.getUsername())
-                .time(LocalDateTime.now())
+                .time(effectiveDate)
                 .payload(payload)
                 .build();
 
@@ -201,7 +203,7 @@ public class AuditAspect {
                 .entityType(resolveEntityType(pjp))
                 .entityId(resolveEntityId(result))
                 .detailsJson(details)
-                .createdAt(LocalDateTime.now())
+                .createdAt(effectiveDate)
                 .build();
 
         // Aktif bir transaction varsa, onun commit'inden önce (aynı transaction içinde) kaydet
@@ -230,6 +232,20 @@ public class AuditAspect {
         if (className.contains("Pos"))     return "POS";
 
         return "UNKNOWN";
+    }
+
+    private LocalDateTime resolveEntityDate(Object result) {
+        if (result != null) {
+            for (String methodName : new String[]{"getTransactionDate", "getCreatedAt", "getExpenseDate", "getLogDate"}) {
+                try {
+                    Method m = result.getClass().getMethod(methodName);
+                    Object val = m.invoke(result);
+                    if (val instanceof LocalDateTime ldt) return ldt;
+                    if (val instanceof LocalDate ld) return ld.atStartOfDay();
+                } catch (Exception ignored) {}
+            }
+        }
+        return LocalDateTime.now();
     }
 
     private Long resolveEntityId(Object result) {

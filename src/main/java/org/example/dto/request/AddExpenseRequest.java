@@ -13,6 +13,7 @@ import org.example.skills.enums.AracPlaka;
 import org.example.skills.enums.ExpensePaymentMethod;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AddExpenseRequest(
@@ -36,5 +37,8 @@ public record AddExpenseRequest(
         String description,
 
         @JsonAlias({"plaka", "arac_plaka"})
-        AracPlaka aracPlaka
+        AracPlaka aracPlaka,
+
+        /** Geriye dönük işlem tarihi — sadece GECMIS_TARIH yetkisinde kullanılır, yoksa null */
+        LocalDate transactionDate
 ) {}

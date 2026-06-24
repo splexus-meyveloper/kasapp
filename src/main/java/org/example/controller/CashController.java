@@ -25,15 +25,15 @@ public class CashController {
     @PostMapping("/income")
     public void income(@Valid @RequestBody CashRequest request,
                        @AuthenticationPrincipal CustomUserDetails user) {
-        service.addIncome(request.amount(), request.description(),
-                user.getId(), user.getCompanyId());
+        var date = hasGecmisTarih(user) ? request.transactionDate() : null;
+        service.addIncome(request.amount(), request.description(), user.getId(), user.getCompanyId(), date);
     }
 
     @PostMapping("/expense")
     public void expense(@Valid @RequestBody CashRequest request,
                         @AuthenticationPrincipal CustomUserDetails user) {
-        service.addExpense(request.amount(), request.description(),
-                user.getId(), user.getCompanyId());
+        var date = hasGecmisTarih(user) ? request.transactionDate() : null;
+        service.addExpense(request.amount(), request.description(), user.getId(), user.getCompanyId(), date);
     }
 
     @GetMapping("/balance")
@@ -69,5 +69,10 @@ public class CashController {
                 user.getId(),
                 user.getCompanyId()
         );
+    }
+
+    private boolean hasGecmisTarih(CustomUserDetails user) {
+        return user.getAuthorities().stream()
+                .anyMatch(a -> "GECMIS_TARIH".equals(a.getAuthority()));
     }
 }

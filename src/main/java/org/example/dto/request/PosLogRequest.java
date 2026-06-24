@@ -8,6 +8,7 @@ import org.example.skills.enums.PosTerminal;
 import org.example.skills.enums.PosType;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record PosLogRequest(
 
@@ -22,5 +23,8 @@ public record PosLogRequest(
 
         @NotBlank(message = "Aciklama bos olamaz")
         @Size(max = 255)
-        String description
+        String description,
+
+        /** Geriye dönük işlem tarihi — sadece GECMIS_TARIH yetkisinde kullanılır, yoksa null */
+        LocalDate transactionDate
 ) {}

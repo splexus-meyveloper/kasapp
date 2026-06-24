@@ -100,14 +100,17 @@ public class ExpenseService {
             aciklama = "[" + req.aracPlaka().getLabel() + "] " + aciklama;
         }
 
+        LocalDate expDate = (req.transactionDate() != null) ? req.transactionDate() : LocalDate.now();
+        LocalDateTime createdAt = (req.transactionDate() != null) ? expDate.atStartOfDay() : LocalDateTime.now();
+
         Expense expense = Expense.builder()
                 .companyId(companyId)
                 .type(req.expenseType())
                 .paymentMethod(paymentMethod)
                 .amount(req.amount())
                 .description(aciklama)
-                .expenseDate(LocalDate.now())
-                .createdAt(LocalDateTime.now())
+                .expenseDate(expDate)
+                .createdAt(createdAt)
                 .createdBy(userId)
                 .build();
 
@@ -115,14 +118,15 @@ public class ExpenseService {
         realtimeEventService.publish("MASRAF", "EXPENSE_ADD", companyId, expense.getId());
 
         if (paymentMethod == ExpensePaymentMethod.CASH) {
-            // Sessiz: kasa hareketi/bakiye oluşur ama ayrı CASH_EXPENSE (Kasa Çıkış)
-            // satırı loglanmaz — masraf tek kayıt (EXPENSE_ADD) olarak görünür.
-            cashService.addExpenseForMasraf(
+            var cashTx = cashService.addExpenseForMasraf(
                     req.amount(),
                     req.expenseType() + " - " + aciklama,
                     userId,
-                    companyId
+                    companyId,
+                    expDate
             );
+            expense.setCashTransactionId(cashTx.getId());
+            expenseRepository.save(expense);
         }
 
         return expense;

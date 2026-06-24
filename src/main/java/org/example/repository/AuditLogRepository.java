@@ -21,6 +21,8 @@ public interface AuditLogRepository
     Page<AuditLog> findByCompanyIdAndUserIdOrderByCreatedAtDesc(
             Long companyId, Long userId, Pageable pageable);
 
+    void deleteByEntityIdAndEntityType(Long entityId, String entityType);
+
     @Query("""
         SELECT a FROM AuditLog a
         WHERE a.companyId = :companyId

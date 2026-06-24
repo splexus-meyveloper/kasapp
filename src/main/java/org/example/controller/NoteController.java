@@ -26,7 +26,9 @@ public class NoteController {
     public ResponseEntity<?> noteIn(
             @Valid @RequestBody NoteEntryRequest req,
             @AuthenticationPrincipal CustomUserDetails user) {
-        service.noteIn(req, user.getId(), user.getCompanyId());
+        NoteEntryRequest effectiveReq = hasGecmisTarih(user) ? req
+                : new NoteEntryRequest(req.noteNo(), req.dueDate(), req.amount(), req.description(), null);
+        service.noteIn(effectiveReq, user.getId(), user.getCompanyId());
         return ResponseEntity.ok("Senet giriş yapıldı");
     }
 
@@ -85,5 +87,10 @@ public class NoteController {
     public List<NoteListResponse> all(
             @AuthenticationPrincipal CustomUserDetails user) {
         return service.getAllNotes(user.getCompanyId());
+    }
+
+    private boolean hasGecmisTarih(CustomUserDetails user) {
+        return user.getAuthorities().stream()
+                .anyMatch(a -> "GECMIS_TARIH".equals(a.getAuthority()));
     }
 }

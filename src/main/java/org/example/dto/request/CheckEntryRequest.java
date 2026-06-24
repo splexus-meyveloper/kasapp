@@ -33,5 +33,8 @@ public record CheckEntryRequest(
         String description,
 
         @NotNull
-        CheckType checkType
+        CheckType checkType,
+
+        /** Geriye dönük kayıt tarihi — sadece GECMIS_TARIH yetkisinde kullanılır, yoksa null */
+        LocalDate entryDate
 ) {}

@@ -20,8 +20,10 @@ import org.example.entity.Check;
 import org.example.entity.Note;
 import org.example.entity.PosLog;
 import org.example.repository.AuditLogRepository;
+import org.example.repository.CashTransactionRepository;
 import org.example.repository.ChangeRequestRepository;
 import org.example.repository.CheckRepository;
+import org.example.repository.ExpenseRepository;
 import org.example.repository.NoteRepository;
 import org.example.repository.PosLogRepository;
 import org.example.skills.enums.PosType;
@@ -42,11 +44,13 @@ public class MyActivityService {
     private static final int MAX_RECORDS = 500;
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
-    private final AuditLogRepository      auditRepo;
-    private final ChangeRequestRepository changeRepo;
-    private final CheckRepository         checkRepository;
-    private final NoteRepository          noteRepository;
-    private final PosLogRepository        posLogRepository;
+    private final AuditLogRepository        auditRepo;
+    private final ChangeRequestRepository  changeRepo;
+    private final CashTransactionRepository cashTransactionRepository;
+    private final CheckRepository           checkRepository;
+    private final ExpenseRepository         expenseRepository;
+    private final NoteRepository            noteRepository;
+    private final PosLogRepository          posLogRepository;
 
     // ── Liste (filtreli) ──────────────────────────────────────────
     public List<MyActivityDto> getMyActivities(Long userId, Long companyId,
@@ -97,12 +101,24 @@ public class MyActivityService {
                     .forEach(result::add);
         }
 
-        // Filtre yoksa change request'leri de ekle
-        if (action == null && startDate == null && endDate == null) {
+        // Belirli işlem türü seçili değilse change request'leri de ekle
+        if (action == null) {
             List<ChangeRequest> requests = changeRepo
                     .findByCompanyIdAndRequestedByOrderByRequestedAtDesc(
                             companyId, userId, PageRequest.of(0, 50))
                     .getContent();
+            // Tarih filtresi varsa change request'leri de o aralıkla kısıtla
+            if (start != null || end != null) {
+                requests = requests.stream()
+                        .filter(r -> {
+                            LocalDateTime at = r.getRequestedAt();
+                            if (at == null) return false;
+                            if (start != null && at.isBefore(start)) return false;
+                            if (end   != null && !at.isBefore(end))  return false;
+                            return true;
+                        })
+                        .toList();
+            }
 
             for (ChangeRequest req : requests) {
                 result.add(MyActivityDto.builder()
@@ -229,6 +245,24 @@ public class MyActivityService {
     private void enrichEntityFields(MyActivityDto.MyActivityDtoBuilder builder,
                                     String entityType, Long entityId, Long companyId) {
         if (entityId == null || entityType == null) return;
+
+        // Düzenleme sonrası güncel tutarı göstermek için canlı tablodan oku
+        // AuditAspect "CASH_TRANSACTION" kaydeder, "CASH" de desteklenir
+        if ("CASH".equalsIgnoreCase(entityType) || "CASH_TRANSACTION".equalsIgnoreCase(entityType)) {
+            cashTransactionRepository.findById(entityId).ifPresent(tx -> {
+                if (tx.isActive()) {
+                    builder.amount(tx.getAmount()).description(tx.getDescription());
+                }
+            });
+            return;
+        }
+
+        if ("EXPENSE".equalsIgnoreCase(entityType)) {
+            expenseRepository.findById(entityId).ifPresent(e ->
+                builder.amount(e.getAmount()).description(e.getDescription())
+            );
+            return;
+        }
 
         if ("CHECK".equalsIgnoreCase(entityType)) {
             checkRepository.findByIdAndCompanyId(entityId, companyId).ifPresent(c ->

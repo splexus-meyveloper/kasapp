@@ -34,8 +34,9 @@ public class PosController {
     public ResponseEntity<PosLogResponse> logPos(
             @Valid @RequestBody PosLogRequest req,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(
-                service.logPos(req, user.getId(), user.getCompanyId()));
+        PosLogRequest effectiveReq = hasGecmisTarih(user) ? req
+                : new PosLogRequest(req.posType(), req.terminal(), req.amount(), req.description(), null);
+        return ResponseEntity.ok(service.logPos(effectiveReq, user.getId(), user.getCompanyId()));
     }
 
     /** Log listesi — sadece admin */
@@ -77,6 +78,11 @@ public class PosController {
             }
         }
         return null;
+    }
+
+    private boolean hasGecmisTarih(CustomUserDetails user) {
+        return user.getAuthorities().stream()
+                .anyMatch(a -> "GECMIS_TARIH".equals(a.getAuthority()));
     }
 
     private LocalDate parseDate(String value) {

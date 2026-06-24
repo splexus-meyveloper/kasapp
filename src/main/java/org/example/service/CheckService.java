@@ -40,6 +40,10 @@ public class CheckService {
             throw new RuntimeException("Bu çek zaten kayıtlı");
         }
 
+        LocalDateTime entryDateTime = (req.entryDate() != null)
+                ? req.entryDate().atStartOfDay()
+                : LocalDateTime.now();
+
         Check check = Check.builder()
                 .checkNo(req.checkNo())
                 .bank(req.bank())
@@ -50,7 +54,7 @@ public class CheckService {
                 .checkType(req.checkType())
                 .companyId(companyId)
                 .createdBy(userId)
-                .createdAt(LocalDateTime.now())
+                .createdAt(entryDateTime)
                 .build();
 
         check = repository.save(check);

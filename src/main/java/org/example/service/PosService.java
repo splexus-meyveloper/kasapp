@@ -55,6 +55,10 @@ public class PosService {
             throw new IllegalArgumentException("Secilen terminal bu POS tipine ait degil.");
         }
 
+        LocalDateTime logDateTime = (req.transactionDate() != null)
+                ? req.transactionDate().atStartOfDay()
+                : LocalDateTime.now();
+
         PosLog log = PosLog.builder()
                 .posType(req.posType())
                 .terminal(req.terminal())
@@ -62,7 +66,7 @@ public class PosService {
                 .description(req.description())
                 .userId(userId)
                 .companyId(companyId)
-                .logDate(LocalDateTime.now())
+                .logDate(logDateTime)
                 .build();
 
         posLogRepository.save(log);

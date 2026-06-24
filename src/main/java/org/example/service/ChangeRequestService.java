@@ -5,20 +5,27 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.dto.request.CashUpdateRequestDto;
 import org.example.dto.request.CheckUpdateRequestDto;
+import org.example.dto.request.ExpenseUpdateRequestDto;
 import org.example.dto.request.NoteUpdateRequestDto;
 import org.example.dto.request.PosUpdateRequestDto;
 import org.example.dto.response.ChangeRequestResponseDto;
+import org.example.entity.AuditLog;
 import org.example.entity.CashTransaction;
 import org.example.entity.ChangeRequest;
+import org.example.entity.Expense;
+import org.example.entity.InterBranchTransfer;
 import org.example.entity.Note;
 import org.example.entity.Check;
 import org.example.entity.PosLog;
 import org.example.exception.ErrorType;
 import org.example.exception.KasappException;
+import org.example.repository.AuditLogRepository;
 import org.example.repository.CashTransactionRepository;
 import org.example.repository.ChangeRequestRepository;
 import org.example.repository.CheckRepository;
 import org.example.repository.CompanyRepository;
+import org.example.repository.ExpenseRepository;
+import org.example.repository.InterBranchTransferRepository;
 import org.example.repository.NoteRepository;
 import org.example.repository.PosLogRepository;
 import org.example.repository.UserRepository;
@@ -42,10 +49,13 @@ import java.util.stream.Collectors;
 public class ChangeRequestService {
 
     private final ChangeRequestRepository changeRequestRepository;
+    private final AuditLogRepository auditLogRepository;
     private final CashTransactionRepository cashTransactionRepository;
     private final CheckRepository checkRepository;
     private final NoteRepository noteRepository;
     private final PosLogRepository posLogRepository;
+    private final ExpenseRepository expenseRepository;
+    private final InterBranchTransferRepository interBranchTransferRepository;
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
     private final ObjectMapper objectMapper;
@@ -53,7 +63,7 @@ public class ChangeRequestService {
 
     // ── CASH güncelleme talebi ────────────────────────────────────────────
     @Transactional
-    public void createCashUpdateRequest(Long cashId, CashUpdateRequestDto dto,
+    public Long createCashUpdateRequest(Long cashId, CashUpdateRequestDto dto,
                                         Long userId, Long companyId) {
         CashTransaction existing = cashTransactionRepository.findById(cashId)
                 .orElseThrow(() -> new KasappException(ErrorType.CASH_TRANSACTION_NOT_FOUND));
@@ -68,11 +78,12 @@ public class ChangeRequestService {
 
         logAudit(AuditAction.CASH_UPDATE_REQUEST_CREATED, "CASH",
                 existing.getId(), userId, companyId, request);
+        return request.getId();
     }
 
     // ── CHECK güncelleme talebi ───────────────────────────────────────────
     @Transactional
-    public void createCheckUpdateRequest(Long checkId, CheckUpdateRequestDto dto,
+    public Long createCheckUpdateRequest(Long checkId, CheckUpdateRequestDto dto,
                                          Long userId, Long companyId) {
         Check existing = checkRepository.findById(checkId)
                 .orElseThrow(() -> new KasappException(ErrorType.CHECK_NOT_FOUND));
@@ -88,11 +99,12 @@ public class ChangeRequestService {
 
         logAudit(AuditAction.CHECK_UPDATE_REQUEST_CREATED, "CHECK",
                 existing.getId(), userId, companyId, request);
+        return request.getId();
     }
 
     // ── NOTE güncelleme talebi ────────────────────────────────────────────
     @Transactional
-    public void createNoteUpdateRequest(Long noteId, NoteUpdateRequestDto dto,
+    public Long createNoteUpdateRequest(Long noteId, NoteUpdateRequestDto dto,
                                         Long userId, Long companyId) {
         Note existing = noteRepository.findById(noteId)
                 .orElseThrow(() -> new KasappException(ErrorType.NOTE_NOT_FOUND));
@@ -107,10 +119,11 @@ public class ChangeRequestService {
 
         logAudit(AuditAction.NOTE_UPDATE_REQUEST_CREATED, "NOTE",
                 existing.getId(), userId, companyId, request);
+        return request.getId();
     }
 
     @Transactional
-    public void createPosUpdateRequest(Long posLogId, PosUpdateRequestDto dto,
+    public Long createPosUpdateRequest(Long posLogId, PosUpdateRequestDto dto,
                                        Long userId, Long companyId) {
         PosLog existing = posLogRepository.findById(posLogId)
                 .orElseThrow(() -> new KasappException(ErrorType.POS_LOG_NOT_FOUND));
@@ -132,11 +145,32 @@ public class ChangeRequestService {
 
         logAudit(AuditAction.POS_UPDATE_REQUEST_CREATED, "POS",
                 existing.getId(), userId, companyId, request);
+        return request.getId();
+    }
+
+    // ── EXPENSE güncelleme talebi ─────────────────────────────────────────
+    @Transactional
+    public Long createExpenseUpdateRequest(Long expenseId, ExpenseUpdateRequestDto dto,
+                                           Long userId, Long companyId) {
+        Expense existing = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new KasappException(ErrorType.EXPENSE_NOT_FOUND));
+
+        if (!existing.getCompanyId().equals(companyId))
+            throw new KasappException(ErrorType.ACCESS_DENIED);
+
+        ChangeRequest request = buildAndSaveRequest(
+                "EXPENSE", existing.getId(), companyId, userId,
+                existing, new ExpenseUpdateRequestDto(dto.amount(), dto.description())
+        );
+
+        logAudit(AuditAction.EXPENSE_UPDATE_REQUEST_CREATED, "EXPENSE",
+                existing.getId(), userId, companyId, request);
+        return request.getId();
     }
 
     // ── SİLME talebi (onaylanınca işlem silinir + finansal etki geri alınır) ──
     @Transactional
-    public void createDeleteRequest(String entityType, Long entityId,
+    public Long createDeleteRequest(String entityType, Long entityId,
                                     Long userId, Long companyId) {
         String type = entityType == null ? "" : entityType.trim().toUpperCase();
         Object snapshot;
@@ -165,11 +199,24 @@ public class ChangeRequestService {
                 if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
                 snapshot = e;
             }
+            case "EXPENSE" -> {
+                Expense e = expenseRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.EXPENSE_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                snapshot = e;
+            }
+            case "TRANSFER" -> {
+                InterBranchTransfer e = interBranchTransferRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
+                if (!e.getSourceCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                snapshot = e;
+            }
             default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         }
 
         ChangeRequest request = buildAndSaveDeleteRequest(type, entityId, companyId, userId, snapshot);
         logAudit(AuditAction.ISLEM_SILME_TALEBI, type, entityId, userId, companyId, request);
+        return request.getId();
     }
 
     // ── Tek talep getir ───────────────────────────────────────────────────
@@ -402,7 +449,26 @@ public class ChangeRequestService {
                 PosLog e = posLogRepository.findById(request.getEntityId())
                         .orElseThrow(() -> new KasappException(ErrorType.POS_LOG_NOT_FOUND));
                 if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
-                posLogRepository.delete(e);                   // POS kasaya yansımaz, sadece log silinir
+                posLogRepository.delete(e);
+            }
+            case "EXPENSE" -> {
+                Expense e = expenseRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.EXPENSE_NOT_FOUND));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                if (e.getCashTransactionId() != null) {
+                    cashTransactionRepository.findById(e.getCashTransactionId()).ifPresent(tx -> {
+                        tx.setActive(false);
+                        cashTransactionRepository.save(tx);
+                    });
+                }
+                expenseRepository.delete(e);
+                auditLogRepository.deleteByEntityIdAndEntityType(e.getId(), "EXPENSE");
+            }
+            case "TRANSFER" -> {
+                InterBranchTransfer e = interBranchTransferRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
+                if (!e.getSourceCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                interBranchTransferRepository.delete(e);
             }
             default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         }
@@ -509,6 +575,30 @@ public class ChangeRequestService {
 
                     posLogRepository.save(existing);
                 }
+                case "EXPENSE" -> {
+                    Expense existing = expenseRepository
+                            .findById(request.getEntityId())
+                            .orElseThrow(() -> new KasappException(ErrorType.EXPENSE_NOT_FOUND));
+
+                    if (!existing.getCompanyId().equals(companyId))
+                        throw new KasappException(ErrorType.ACCESS_DENIED);
+
+                    ExpenseUpdateRequestDto newData = objectMapper.readValue(
+                            request.getNewData(), ExpenseUpdateRequestDto.class);
+
+                    if (newData.amount() != null)      existing.setAmount(newData.amount());
+                    if (newData.description() != null) existing.setDescription(newData.description());
+                    expenseRepository.save(existing);
+
+                    // Kasa hareketinin tutarını da güncelle
+                    if (existing.getCashTransactionId() != null && newData.amount() != null) {
+                        cashTransactionRepository.findById(existing.getCashTransactionId())
+                                .ifPresent(tx -> {
+                                    tx.setAmount(newData.amount());
+                                    cashTransactionRepository.save(tx);
+                                });
+                    }
+                }
                 default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
             }
         } catch (KasappException e) {
@@ -543,11 +633,13 @@ public class ChangeRequestService {
 
     private AuditAction resolveApproveAction(String entityType) {
         return switch (entityType) {
-            case "CASH"  -> AuditAction.CASH_UPDATE_REQUEST_APPROVED;
-            case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_APPROVED;
-            case "NOTE"  -> AuditAction.NOTE_UPDATE_REQUEST_APPROVED;
-            case "POS"   -> AuditAction.POS_UPDATE_REQUEST_APPROVED;
-            default      -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
+            case "CASH"     -> AuditAction.CASH_UPDATE_REQUEST_APPROVED;
+            case "CHECK"    -> AuditAction.CHECK_UPDATE_REQUEST_APPROVED;
+            case "NOTE"     -> AuditAction.NOTE_UPDATE_REQUEST_APPROVED;
+            case "POS"      -> AuditAction.POS_UPDATE_REQUEST_APPROVED;
+            case "EXPENSE"  -> AuditAction.EXPENSE_UPDATE_REQUEST_APPROVED;
+            case "TRANSFER" -> AuditAction.ISLEM_SILINDI; // transfer sadece silinebilir
+            default         -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         };
     }
 
@@ -563,11 +655,13 @@ public class ChangeRequestService {
 
     private AuditAction resolveRejectAction(String entityType) {
         return switch (entityType) {
-            case "CASH"  -> AuditAction.CASH_UPDATE_REQUEST_REJECTED;
-            case "CHECK" -> AuditAction.CHECK_UPDATE_REQUEST_REJECTED;
-            case "NOTE"  -> AuditAction.NOTE_UPDATE_REQUEST_REJECTED;
-            case "POS"   -> AuditAction.POS_UPDATE_REQUEST_REJECTED;
-            default      -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
+            case "CASH"     -> AuditAction.CASH_UPDATE_REQUEST_REJECTED;
+            case "CHECK"    -> AuditAction.CHECK_UPDATE_REQUEST_REJECTED;
+            case "NOTE"     -> AuditAction.NOTE_UPDATE_REQUEST_REJECTED;
+            case "POS"      -> AuditAction.POS_UPDATE_REQUEST_REJECTED;
+            case "EXPENSE"  -> AuditAction.EXPENSE_UPDATE_REQUEST_REJECTED;
+            case "TRANSFER" -> AuditAction.ISLEM_SILME_REDDEDILDI;
+            default         -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         };
     }
 

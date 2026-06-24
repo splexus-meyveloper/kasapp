@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -36,7 +37,15 @@ public class CashService {
     public CashTransaction addIncome(@AuditAmount BigDecimal amount,
                                      @AuditDesc String description,
                                      Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, false);
+        return addIncome(amount, description, userId, companyId, null);
+    }
+
+    @Audit(action = AuditAction.CASH_INCOME, cash = CashDirection.IN)
+    @Transactional
+    public CashTransaction addIncome(@AuditAmount BigDecimal amount,
+                                     @AuditDesc String description,
+                                     Long userId, Long companyId, LocalDate overrideDate) {
+        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, false, overrideDate);
         realtimeEventService.publish("KASA", "CASH_INCOME", companyId, tx.getId());
         return tx;
     }
@@ -46,7 +55,15 @@ public class CashService {
     public CashTransaction addExpense(@AuditAmount BigDecimal amount,
                                       @AuditDesc String description,
                                       Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false);
+        return addExpense(amount, description, userId, companyId, null);
+    }
+
+    @Audit(action = AuditAction.CASH_EXPENSE, cash = CashDirection.OUT)
+    @Transactional
+    public CashTransaction addExpense(@AuditAmount BigDecimal amount,
+                                      @AuditDesc String description,
+                                      Long userId, Long companyId, LocalDate overrideDate) {
+        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false, overrideDate);
         realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
         return tx;
     }
@@ -59,21 +76,27 @@ public class CashService {
     @Transactional
     public CashTransaction addExpenseForMasraf(BigDecimal amount, String description,
                                                Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false);
+        return addExpenseForMasraf(amount, description, userId, companyId, null);
+    }
+
+    @Transactional
+    public CashTransaction addExpenseForMasraf(BigDecimal amount, String description,
+                                               Long userId, Long companyId, LocalDate overrideDate) {
+        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, false, overrideDate);
         realtimeEventService.publish("KASA", "CASH_EXPENSE", companyId, tx.getId());
         return tx;
     }
 
     @Transactional
     public CashTransaction addTransferIncome(BigDecimal amount, String description, Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, true);
+        CashTransaction tx = createTransaction(TransactionType.INCOME, amount, description, userId, companyId, true, null);
         realtimeEventService.publish("KASA", "TRANSFER_INCOME", companyId, tx.getId());
         return tx;
     }
 
     @Transactional
     public CashTransaction addTransferExpense(BigDecimal amount, String description, Long userId, Long companyId) {
-        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, true);
+        CashTransaction tx = createTransaction(TransactionType.EXPENSE, amount, description, userId, companyId, true, null);
         realtimeEventService.publish("KASA", "TRANSFER_EXPENSE", companyId, tx.getId());
         return tx;
     }
@@ -106,15 +129,19 @@ public class CashService {
 
     private CashTransaction createTransaction(TransactionType type, BigDecimal amount,
                                               String description, Long userId, Long companyId,
-                                              boolean transferTransaction) {
+                                              boolean transferTransaction, LocalDate overrideDate) {
         validate(amount);
         amount = amount.setScale(2, RoundingMode.HALF_UP);
+
+        LocalDateTime txDate = (overrideDate != null)
+                ? overrideDate.atStartOfDay()
+                : LocalDateTime.now();
 
         CashTransaction tx = CashTransaction.builder()
                 .type(type)
                 .amount(amount)
                 .description(description)
-                .transactionDate(LocalDateTime.now())
+                .transactionDate(txDate)
                 .userId(userId)
                 .companyId(companyId)
                 .active(true)

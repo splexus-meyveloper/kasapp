@@ -26,7 +26,10 @@ public class CheckController {
     public ResponseEntity<?> checkIn(
             @Valid @RequestBody CheckEntryRequest req,
             @AuthenticationPrincipal CustomUserDetails user) {
-        service.checkIn(req, user.getId(), user.getCompanyId());
+        CheckEntryRequest effectiveReq = hasGecmisTarih(user) ? req
+                : new CheckEntryRequest(req.checkNo(), req.bank(), req.dueDate(),
+                        req.amount(), req.description(), req.checkType(), null);
+        service.checkIn(effectiveReq, user.getId(), user.getCompanyId());
         return ResponseEntity.ok("Çek giriş yapıldı");
     }
 
@@ -95,5 +98,10 @@ public class CheckController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return service.getAllChecks(user.getCompanyId(), user.getRole(), page, size);
+    }
+
+    private boolean hasGecmisTarih(CustomUserDetails user) {
+        return user.getAuthorities().stream()
+                .anyMatch(a -> "GECMIS_TARIH".equals(a.getAuthority()));
     }
 }

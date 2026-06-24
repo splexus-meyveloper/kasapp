@@ -33,6 +33,10 @@ public class NoteService {
         if (repository.existsByNoteNoAndCompanyId(req.noteNo(), companyId)) {
             throw new RuntimeException("Bu senet zaten kayıtlı");
         }
+        LocalDateTime entryDateTime = (req.entryDate() != null)
+                ? req.entryDate().atStartOfDay()
+                : LocalDateTime.now();
+
         Note note = Note.builder()
                 .noteNo(req.noteNo())
                 .dueDate(req.dueDate())
@@ -41,7 +45,7 @@ public class NoteService {
                 .status(NoteStatus.PORTFOYDE)
                 .companyId(companyId)
                 .createdBy(userId)
-                .createdAt(LocalDateTime.now())
+                .createdAt(entryDateTime)
                 .build();
         note = repository.save(note);
         realtimeEventService.publish("SENET", "NOTE_IN", companyId, note.getId());

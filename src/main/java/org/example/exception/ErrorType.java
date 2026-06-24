@@ -55,6 +55,7 @@ public enum ErrorType {
     NOTE_NOT_FOUND(5003, "Senet bulunamadı.", HttpStatus.NOT_FOUND),
     ACCESS_DENIED(5004, "Bu kayıt üzerinde işlem yetkiniz yok.", HttpStatus.FORBIDDEN),
     POS_LOG_NOT_FOUND(5005, "POS hareketi bulunamadi.", HttpStatus.NOT_FOUND),
+    EXPENSE_NOT_FOUND(5007, "Masraf kaydı bulunamadı.", HttpStatus.NOT_FOUND),
     PERSONAL_NOTE_NOT_FOUND(5006, "Not bulunamadı.", HttpStatus.NOT_FOUND),
 
     // ── Kredi hataları ────────────────────────────────────────────────

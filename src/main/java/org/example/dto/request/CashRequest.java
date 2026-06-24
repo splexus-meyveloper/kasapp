@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record CashRequest(
                           @NotNull
@@ -13,5 +14,7 @@ public record CashRequest(
                           BigDecimal amount,
                           @NotBlank(message = "Açıklama boş olamaz")
                           @Size(max = 255, message = "Açıklama çok uzun")
-                          String description) {
+                          String description,
+                          /** Geriye dönük işlem tarihi — sadece GECMIS_TARIH yetkisinde kullanılır, yoksa null */
+                          LocalDate transactionDate) {
 }

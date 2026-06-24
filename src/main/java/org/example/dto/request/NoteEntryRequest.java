@@ -24,6 +24,9 @@ public record NoteEntryRequest(
 
         @NotBlank
         @Size(max = 255)
-        @AuditDesc String description
+        @AuditDesc String description,
+
+        /** Geriye dönük kayıt tarihi — sadece GECMIS_TARIH yetkisinde kullanılır, yoksa null */
+        LocalDate entryDate
 ) {
 }

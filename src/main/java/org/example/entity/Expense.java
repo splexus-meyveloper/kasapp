@@ -42,6 +42,10 @@ public class Expense {
 
     private Long createdBy;
 
+    /** Nakit ödemede oluşan kasa hareketinin ID'si — silme sırasında geri almak için */
+    @Column(name = "cash_transaction_id")
+    private Long cashTransactionId;
+
     @PrePersist
     @PreUpdate
     private void validateRequiredFields() {
