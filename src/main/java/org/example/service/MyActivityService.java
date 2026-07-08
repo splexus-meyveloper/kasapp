@@ -130,6 +130,7 @@ public class MyActivityService {
                         .date(req.getRequestedAt() != null ? req.getRequestedAt() : LocalDateTime.now())
                         .entityId(req.getEntityId())
                         .entityType(req.getEntityType())
+                        .actionType(req.getActionType() != null ? req.getActionType().name() : null)
                         .oldData(req.getOldData())
                         .newData(req.getNewData())
                         .build());

@@ -26,6 +26,7 @@ public class MyActivityDto {
 
     private Long entityId;
     private String entityType;
+    private String actionType;   // Change request için: UPDATE | DELETE
 
     private String oldData;
     private String newData;

@@ -177,4 +177,25 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
 
     Page<CashTransaction> findByCompanyIdAndUserIdAndActiveTrueOrderByTransactionDateDesc(
             Long companyId, Long userId, Pageable pageable);
+
+    // Global arama — açıklamada geçen metin (tüm şirket, admin)
+    @Query("""
+        SELECT t FROM CashTransaction t
+        WHERE t.companyId = :companyId
+          AND t.active = true
+          AND LOWER(t.description) LIKE LOWER(CONCAT('%', :q, '%'))
+        ORDER BY t.transactionDate DESC
+    """)
+    List<CashTransaction> searchForGlobal(Long companyId, String q, Pageable pageable);
+
+    // Global arama — kullanıcının kendi işlemleri
+    @Query("""
+        SELECT t FROM CashTransaction t
+        WHERE t.companyId = :companyId
+          AND t.userId = :userId
+          AND t.active = true
+          AND LOWER(t.description) LIKE LOWER(CONCAT('%', :q, '%'))
+        ORDER BY t.transactionDate DESC
+    """)
+    List<CashTransaction> searchForGlobalByUser(Long companyId, Long userId, String q, Pageable pageable);
 }

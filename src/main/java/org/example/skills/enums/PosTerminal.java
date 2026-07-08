@@ -18,6 +18,7 @@ public enum PosTerminal {
     MAKPARSAN        (PosType.TEDARIKCI_POS, "Makparsan"),
     ROTA             (PosType.TEDARIKCI_POS, "Rota"),
     OTO_KARAMAN      (PosType.TEDARIKCI_POS, "Oto Karaman"),
+    USMER            (PosType.TEDARIKCI_POS, "USMER"),
 
     // Yazarkasa POS terminalleri
     YAZARKASA_ZIRAAT (PosType.YAZARKASA_POS, "Ziraat Bankası"),

@@ -108,4 +108,14 @@ public interface CheckRepository extends JpaRepository<Check,Long> {
     """)
     BigDecimal sumTodayByUser(Long companyId, Long userId,
                               LocalDateTime start, LocalDateTime end);
+
+    // Global arama — çek no ve açıklamada geçen metin
+    @Query("""
+        SELECT c FROM Check c
+        WHERE c.companyId = :companyId
+          AND (LOWER(c.checkNo) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(c.description) LIKE LOWER(CONCAT('%', :q, '%')))
+        ORDER BY c.createdAt DESC
+    """)
+    List<Check> searchForGlobal(Long companyId, String q, Pageable pageable);
 }

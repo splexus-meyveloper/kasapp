@@ -12,12 +12,16 @@ import org.example.exception.KasappException;
 import org.example.repository.CompanyRepository;
 import org.example.security.CustomUserDetails;
 import org.example.service.AdminService;
+import org.example.websocket.PresenceTracker;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -26,6 +30,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final CompanyRepository companyRepository;
+    private final PresenceTracker presenceTracker;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/users/{userId}/permissions")
@@ -94,5 +99,26 @@ public class AdminController {
     @GetMapping("/companies")
     public List<Company> getCompanies() {
         return companyRepository.findAll();
+    }
+
+    /** Şu an WebSocket bağlantısı açık (oturumu aktif) kullanıcılar */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/active-users")
+    public List<Map<String, Object>> getActiveUsers() {
+        Map<Long, String> companyNames = companyRepository.findAll().stream()
+                .collect(Collectors.toMap(Company::getId, Company::getName, (a, b) -> a));
+
+        return presenceTracker.getActiveUsers().stream()
+                .map(u -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("userId",      u.userId());
+                    m.put("username",    u.username());
+                    m.put("role",        u.role());
+                    m.put("companyId",   u.companyId());
+                    m.put("companyName", companyNames.get(u.companyId()));
+                    m.put("connectedAt", u.connectedAt());
+                    return m;
+                })
+                .collect(Collectors.toList());
     }
 }

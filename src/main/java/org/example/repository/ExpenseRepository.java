@@ -59,4 +59,27 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
           AND e.expenseDate <= :end
     """)
     BigDecimal sumTotalExpense(Long companyId, LocalDate start, LocalDate end);
+
+    // Global arama — açıklama ve masraf türü
+    @Query("""
+        SELECT e FROM Expense e
+        WHERE e.companyId = :companyId
+          AND (LOWER(e.description) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(e.type) LIKE LOWER(CONCAT('%', :q, '%')))
+        ORDER BY e.expenseDate DESC
+    """)
+    List<Expense> searchForGlobal(Long companyId, String q,
+                                  org.springframework.data.domain.Pageable pageable);
+
+    // Global arama — kullanıcı kendi kayıtları
+    @Query("""
+        SELECT e FROM Expense e
+        WHERE e.companyId = :companyId
+          AND e.createdBy = :userId
+          AND (LOWER(e.description) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(e.type) LIKE LOWER(CONCAT('%', :q, '%')))
+        ORDER BY e.expenseDate DESC
+    """)
+    List<Expense> searchForGlobalByUser(Long companyId, Long userId, String q,
+                                        org.springframework.data.domain.Pageable pageable);
 }

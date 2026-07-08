@@ -62,4 +62,16 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     """)
     BigDecimal sumTodayByUser(Long companyId, Long userId,
                               LocalDateTime start, LocalDateTime end);
+
+    // Global arama — senet no, açıklama ve ciro edilen firma
+    @Query("""
+        SELECT n FROM Note n
+        WHERE n.companyId = :companyId
+          AND (LOWER(n.noteNo) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(n.description) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(n.endorsedTo) LIKE LOWER(CONCAT('%', :q, '%')))
+        ORDER BY n.createdAt DESC
+    """)
+    List<Note> searchForGlobal(Long companyId, String q,
+                               org.springframework.data.domain.Pageable pageable);
 }
