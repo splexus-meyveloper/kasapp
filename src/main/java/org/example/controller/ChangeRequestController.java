@@ -10,9 +10,12 @@ import org.example.dto.request.PosUpdateRequestDto;
 import org.example.security.CustomUserDetails;
 import org.example.service.ChangeRequestService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/change-requests")
@@ -27,12 +30,41 @@ public class ChangeRequestController {
                 .anyMatch(a -> "DOGRUDAN_ISLEM".equals(a.getAuthority()));
     }
 
+    /**
+     * Hangi kayıt türünün hangi modül yetkisini gerektirdiği — bu uç noktalar önceden
+     * hiç @PreAuthorize taşımıyordu, yani MASRAF yetkisi olan biri (hatta hiç modül
+     * yetkisi olmayan biri) bir ÇEK ya da SENET kaydı için düzenleme/silme talebi
+     * oluşturabiliyordu. Talep DOGRUDAN_ISLEM ile aynı anda onaylanıp uygulandığından
+     * bu sadece bir "talep oluşturma" formalitesi değil, gerçek bir yetki açığıydı.
+     */
+    private static final Map<String, String> ENTITY_PERMISSION = Map.of(
+            "CASH", "KASA",
+            "CHECK", "CEK",
+            "NOTE", "SENET",
+            "POS", "KASA",
+            "EXPENSE", "MASRAF",
+            "TRANSFER", "KASA",
+            "BANKA_HESAP", "BANKA",
+            "BANKA_ISLEM", "BANKA"
+    );
+
+    private void requirePermission(CustomUserDetails user, String entityType) {
+        String required = ENTITY_PERMISSION.get(entityType);
+        if (required == null) return; // bilinmeyen tip — servis katmanı zaten reddedecek
+        boolean allowed = user.getAuthorities().stream().anyMatch(a ->
+                required.equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
+        if (!allowed) {
+            throw new AccessDeniedException("Bu işlem için " + required + " yetkisi gereklidir.");
+        }
+    }
+
     @PostMapping("/cash/{cashId}")
     public ResponseEntity<?> requestCashUpdate(
             @PathVariable Long cashId,
             @Valid @RequestBody CashUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
+        requirePermission(user, "CASH");
         Long requestId = changeRequestService.createCashUpdateRequest(
                 cashId, dto, user.getId(), user.getCompanyId());
 
@@ -49,6 +81,7 @@ public class ChangeRequestController {
             @Valid @RequestBody CheckUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
+        requirePermission(user, "CHECK");
         Long requestId = changeRequestService.createCheckUpdateRequest(
                 checkId, dto, user.getId(), user.getCompanyId());
 
@@ -65,6 +98,7 @@ public class ChangeRequestController {
             @Valid @RequestBody NoteUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
+        requirePermission(user, "NOTE");
         Long requestId = changeRequestService.createNoteUpdateRequest(
                 noteId, dto, user.getId(), user.getCompanyId());
 
@@ -81,6 +115,7 @@ public class ChangeRequestController {
             @Valid @RequestBody PosUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
+        requirePermission(user, "POS");
         Long requestId = changeRequestService.createPosUpdateRequest(
                 posLogId, dto, user.getId(), user.getCompanyId());
 
@@ -97,6 +132,7 @@ public class ChangeRequestController {
             @Valid @RequestBody ExpenseUpdateRequestDto dto,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
+        requirePermission(user, "EXPENSE");
         Long requestId = changeRequestService.createExpenseUpdateRequest(
                 expenseId, dto, user.getId(), user.getCompanyId());
 
@@ -114,6 +150,7 @@ public class ChangeRequestController {
             @PathVariable Long entityId,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
+        requirePermission(user, entityType == null ? "" : entityType.trim().toUpperCase());
         Long requestId = changeRequestService.createDeleteRequest(
                 entityType, entityId, user.getId(), user.getCompanyId());
 

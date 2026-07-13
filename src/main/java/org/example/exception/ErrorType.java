@@ -59,18 +59,39 @@ public enum ErrorType {
     PERSONAL_NOTE_NOT_FOUND(5006, "Not bulunamadı.", HttpStatus.NOT_FOUND),
 
     // ── Kredi hataları ────────────────────────────────────────────────
-    LOAN_NOT_FOUND(9001, "Kredi bulunamadı.", HttpStatus.NOT_FOUND),
-    LOAN_ALREADY_CLOSED(9002, "Bu kredi zaten kapalı.", HttpStatus.BAD_REQUEST),
-    LOAN_ALL_INSTALLMENTS_PAID(9003, "Tüm taksitler zaten ödenmiş.", HttpStatus.BAD_REQUEST),
-    LOAN_INSTALLMENT_DATE_MISMATCH(9004, "Bitiş tarihi taksit sayısı ile uyumsuz.", HttpStatus.BAD_REQUEST),
-    LOAN_AMOUNT_INVALID(9005, "Kredi tutarı 0'dan büyük olmalıdır.", HttpStatus.BAD_REQUEST),
-    LOAN_INSTALLMENT_INVALID(9006, "Taksit sayısı geçersiz.", HttpStatus.BAD_REQUEST),
-    LOAN_END_DATE_INVALID(9007, "Bitiş tarihi geçmiş bir tarih olamaz.", HttpStatus.BAD_REQUEST),
+    // Not: bu blok önceden 9001-9007 kullanıyordu ve INVALID_TOKEN(9001)/INVALID_PASSWORD(9002)
+    // ile çakışıyordu — 12000 aralığına taşındı, davranışta değişiklik yok (sadece numaralar).
+    LOAN_NOT_FOUND(12001, "Kredi bulunamadı.", HttpStatus.NOT_FOUND),
+    LOAN_ALREADY_CLOSED(12002, "Bu kredi zaten kapalı.", HttpStatus.BAD_REQUEST),
+    LOAN_ALL_INSTALLMENTS_PAID(12003, "Tüm taksitler zaten ödenmiş.", HttpStatus.BAD_REQUEST),
+    LOAN_INSTALLMENT_DATE_MISMATCH(12004, "Bitiş tarihi taksit sayısı ile uyumsuz.", HttpStatus.BAD_REQUEST),
+    LOAN_AMOUNT_INVALID(12005, "Kredi tutarı 0'dan büyük olmalıdır.", HttpStatus.BAD_REQUEST),
+    LOAN_INSTALLMENT_INVALID(12006, "Taksit sayısı geçersiz.", HttpStatus.BAD_REQUEST),
+    LOAN_END_DATE_INVALID(12007, "Bitiş tarihi geçmiş bir tarih olamaz.", HttpStatus.BAD_REQUEST),
 
     // ── Banka hataları ────────────────────────────────────────────────
     BANKA_HESAP_BULUNAMADI(10001, "Banka hesabı bulunamadı.", HttpStatus.NOT_FOUND),
     BANKA_HESAP_MEVCUT    (10002, "Bu hesap kodu zaten mevcut.", HttpStatus.BAD_REQUEST),
-    BANKA_EXCEL_HATALI    (10003, "Excel dosyası okunamadı veya format hatalı.", HttpStatus.BAD_REQUEST);
+    BANKA_EXCEL_HATALI    (10003, "Excel dosyası okunamadı veya format hatalı.", HttpStatus.BAD_REQUEST),
+
+    // ── Fiyat Kural Motoru hataları ───────────────────────────────────
+    PRICE_SUPPLIER_NOT_FOUND     (11001, "Tedarikçi bulunamadı.", HttpStatus.NOT_FOUND),
+    PRICE_SUPPLIER_CODE_EXISTS   (11002, "Bu tedarikçi kodu zaten mevcut.", HttpStatus.BAD_REQUEST),
+    PRODUCT_GROUP_NOT_FOUND      (11003, "Ürün grubu bulunamadı.", HttpStatus.NOT_FOUND),
+    PRICE_RULE_NOT_FOUND         (11004, "Fiyat kuralı bulunamadı.", HttpStatus.NOT_FOUND),
+    PRICE_RULE_NOT_EDITABLE      (11005, "Yalnızca taslak (DRAFT) kurallar düzenlenebilir. Yeni versiyon oluşturun.", HttpStatus.BAD_REQUEST),
+    PRICE_RULE_STEPS_EMPTY       (11006, "Kuralda en az bir adım olmalıdır.", HttpStatus.BAD_REQUEST),
+    PRICE_IMPORT_TEMPLATE_NOT_FOUND (11007, "Kolon eşleme şablonu bulunamadı. Önce şablonu kaydedin.", HttpStatus.BAD_REQUEST),
+    PRICE_IMPORT_BATCH_NOT_FOUND (11008, "Yükleme oturumu bulunamadı.", HttpStatus.NOT_FOUND),
+    PRICE_EXCEL_HATALI           (11009, "Excel dosyası okunamadı veya format hatalı.", HttpStatus.BAD_REQUEST),
+    PRICE_CALC_RUN_NOT_FOUND     (11010, "Hesaplama çalıştırması bulunamadı.", HttpStatus.NOT_FOUND),
+    PRICE_CALC_RESULT_NOT_FOUND  (11011, "Rapor satırı bulunamadı.", HttpStatus.NOT_FOUND),
+    STOCK_SNAPSHOT_NOT_FOUND     (11012, "Seçilen CPM ürünü bu yükleme oturumunda bulunamadı.", HttpStatus.NOT_FOUND),
+    PRICE_IMPORT_ROW_NOT_FOUND   (11013, "Seçilen üretici listesi satırı bu yükleme oturumunda bulunamadı.", HttpStatus.NOT_FOUND),
+    PRICE_RULE_NOT_DELETABLE     (11014, "Yalnızca taslak (DRAFT) kurallar silinebilir. Aktif/arşivlenmiş bir versiyonu silmek yerine yeni versiyon oluşturup aktifleştirin.", HttpStatus.BAD_REQUEST),
+    PRICE_RULE_STEP_INVALID      (11015, "Kural adımlarından birinde geçersiz bir değer var.", HttpStatus.BAD_REQUEST),
+    PRICE_RULE_NOT_ACTIVE        (11016, "Bu kural zaten aktif değil.", HttpStatus.BAD_REQUEST),
+    PRICE_RULE_GROUP_HAS_ACTIVE_VERSION (11017, "Bu kuralın aktif bir versiyonu var — önce devre dışı bırakın, sonra silin.", HttpStatus.BAD_REQUEST);
 
     int code;
     String message;

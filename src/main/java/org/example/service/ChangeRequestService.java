@@ -10,6 +10,8 @@ import org.example.dto.request.NoteUpdateRequestDto;
 import org.example.dto.request.PosUpdateRequestDto;
 import org.example.dto.response.ChangeRequestResponseDto;
 import org.example.entity.AuditLog;
+import org.example.entity.BankaHesap;
+import org.example.entity.BankaIslem;
 import org.example.entity.CashTransaction;
 import org.example.entity.ChangeRequest;
 import org.example.entity.Expense;
@@ -20,6 +22,8 @@ import org.example.entity.PosLog;
 import org.example.exception.ErrorType;
 import org.example.exception.KasappException;
 import org.example.repository.AuditLogRepository;
+import org.example.repository.BankaHesapRepository;
+import org.example.repository.BankaIslemRepository;
 import org.example.repository.CashTransactionRepository;
 import org.example.repository.ChangeRequestRepository;
 import org.example.repository.CheckRepository;
@@ -56,6 +60,8 @@ public class ChangeRequestService {
     private final PosLogRepository posLogRepository;
     private final ExpenseRepository expenseRepository;
     private final InterBranchTransferRepository interBranchTransferRepository;
+    private final BankaHesapRepository bankaHesapRepository;
+    private final BankaIslemRepository bankaIslemRepository;
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
     private final ObjectMapper objectMapper;
@@ -210,6 +216,23 @@ public class ChangeRequestService {
                         .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
                 if (!e.getSourceCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
                 snapshot = e;
+            }
+            case "BANKA_HESAP" -> {
+                BankaHesap e = bankaHesapRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.BANKA_HESAP_BULUNAMADI));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                snapshot = Map.of("id", e.getId(), "hesapKodu", e.getHesapKodu(),
+                        "bankaAdi", e.getBankaAdi(), "hesapNumarasi", e.getHesapNumarasi());
+            }
+            case "BANKA_ISLEM" -> {
+                BankaIslem e = bankaIslemRepository.findById(entityId)
+                        .orElseThrow(() -> new KasappException(ErrorType.BANKA_HESAP_BULUNAMADI));
+                if (!companyId.equals(e.getCompanyId())) throw new KasappException(ErrorType.ACCESS_DENIED);
+                // İlişkili BankaHesap'ı (lazy) tam nesne olarak değil, sadece gerekli alanlarıyla
+                // anlık görüntüye alıyoruz — hem gereksiz büyük JSON hem de session dışı lazy erişim riskini önler.
+                snapshot = Map.of("id", e.getId(), "hesapId", e.getHesap().getId(),
+                        "aciklama", e.getAciklama() == null ? "" : e.getAciklama(),
+                        "tutar", e.getTutar(), "direction", e.getDirection().name());
             }
             default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         }
@@ -469,6 +492,19 @@ public class ChangeRequestService {
                         .orElseThrow(() -> new KasappException(ErrorType.CHANGE_REQUEST_NOT_FOUND));
                 if (!e.getSourceCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
                 interBranchTransferRepository.delete(e);
+            }
+            case "BANKA_HESAP" -> {
+                BankaHesap e = bankaHesapRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.BANKA_HESAP_BULUNAMADI));
+                if (!e.getCompanyId().equals(companyId)) throw new KasappException(ErrorType.ACCESS_DENIED);
+                e.setAktif(false);
+                bankaHesapRepository.save(e);
+            }
+            case "BANKA_ISLEM" -> {
+                BankaIslem e = bankaIslemRepository.findById(request.getEntityId())
+                        .orElseThrow(() -> new KasappException(ErrorType.BANKA_HESAP_BULUNAMADI));
+                if (!companyId.equals(e.getCompanyId())) throw new KasappException(ErrorType.ACCESS_DENIED);
+                bankaIslemRepository.delete(e);
             }
             default -> throw new KasappException(ErrorType.UNSUPPORTED_ENTITY_TYPE);
         }

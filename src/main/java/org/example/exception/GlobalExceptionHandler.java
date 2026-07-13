@@ -39,8 +39,16 @@ public class GlobalExceptionHandler {
     @ResponseBody
     public ResponseEntity<ErrorMessage> kasappExceptionHandler(KasappException exception) {
         log.error("APP ERROR: [{}] {}", exception.getErrorType().name(), exception.getMessage());
-        return createResponseEntity(exception.getErrorType(),
-                exception.getErrorType().getHttpStatus(), null);
+        // exception.getMessage() — tek argümanlı constructor'da statik enum mesajıyla aynıdır,
+        // iki argümanlıda ise o hataya özgü dinamik mesajdır (örn. hangi adımın bozuk olduğu).
+        return new ResponseEntity<>(
+                ErrorMessage.builder()
+                        .success(false)
+                        .message(exception.getMessage())
+                        .code(exception.getErrorType().getCode())
+                        .build(),
+                exception.getErrorType().getHttpStatus()
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

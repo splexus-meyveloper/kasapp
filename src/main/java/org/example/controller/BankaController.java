@@ -60,7 +60,13 @@ public class BankaController {
         return service.hesapGetir(id, user.getCompanyId());
     }
 
-    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    /**
+     * BANKA yetkisi olan herkes değil — sadece DOGRUDAN_ISLEM/ADMIN doğrudan silebilir.
+     * BANKA yetkisi olup DOGRUDAN_ISLEM'i olmayan kullanıcılar artık bu uç noktayı değil,
+     * /api/change-requests/delete/BANKA_HESAP/{id} üzerinden onaya giden bir talep açar
+     * (diğer tüm modüllerle — kasa/çek/senet/masraf — aynı davranış).
+     */
+    @PreAuthorize("hasAuthority('DOGRUDAN_ISLEM') or hasRole('ADMIN')")
     @DeleteMapping("/hesaplar/{id}")
     public ResponseEntity<Void> hesapSil(
             @PathVariable Long id,
@@ -90,7 +96,7 @@ public class BankaController {
         return ResponseEntity.ok(sonuc);
     }
 
-    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('DOGRUDAN_ISLEM') or hasRole('ADMIN')")
     @DeleteMapping("/hesaplar/{id}/islemler")
     public ResponseEntity<String> islemleriTemizle(
             @PathVariable Long id,
@@ -99,7 +105,7 @@ public class BankaController {
         return ResponseEntity.ok(silinen + " islem silindi.");
     }
 
-    @PreAuthorize("hasAuthority('BANKA') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('DOGRUDAN_ISLEM') or hasRole('ADMIN')")
     @DeleteMapping("/hesaplar/{id}/islemler/{islemId}")
     public ResponseEntity<Void> islemSil(
             @PathVariable Long id,
